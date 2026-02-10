@@ -4,7 +4,6 @@ from common.config_loader import load_db_config
 
 def get_db_engine():
     config = load_db_config()
-    # MySQL 연결 URL 생성
     db_url = f"mysql+pymysql://{config['user']}:{config['password']}@{config['host']}:{config['port']}/{config['database']}?charset=utf8mb4"
 
     try:

@@ -15,10 +15,6 @@ class LostArkAPI:
 
     def get_market_items(self, category_code, item_name=None, item_tier=None, item_grade=None, page_no=1,
                          sort_condition="ASC"):
-        """
-        거래소 아이템 검색
-        :param sort_condition: "ASC"(최저가순) 또는 "DESC"(최고가순)
-        """
         url = f"{self.base_url}/markets/items"
 
         payload = {
@@ -46,8 +42,8 @@ class LostArkAPI:
                 time.sleep(60)
                 return self.get_market_items(category_code, item_name, item_tier, item_grade, page_no, sort_condition)
             else:
-                print(f"❌ API 오류 ({response.status_code}): {response.text}")
+                print(f"API 오류 ({response.status_code}): {response.text}")
                 return None
         except Exception as e:
-            print(f"⚠️ 연결 실패: {e}")
+            print(f"연결 실패: {e}")
             return None

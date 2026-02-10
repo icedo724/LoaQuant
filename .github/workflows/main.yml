@@ -1,50 +1,40 @@
 name: Lost Ark Data Collector
 
-# 언제 실행할지 설정
 on:
   schedule:
-    - cron: '0 * * * *'  # 매시 정각(0분)마다 실행 (UTC 기준)
-  workflow_dispatch:      # 깃허브 웹에서 버튼 눌러서 수동 실행 가능하게 함
+    - cron:
+  workflow_dispatch:
 
 permissions:
-  contents: write         # 저장소에 파일을 쓸(저장할) 권한 부여
+  contents: write
 
 jobs:
   collect-data:
-    runs-on: ubuntu-latest # 우분투(리눅스) 환경에서 실행
+    runs-on: ubuntu-latest
 
     steps:
-    # 1. 내 코드 내려받기
     - name: Checkout repository
       uses: actions/checkout@v3
 
-    # 2. 파이썬 설치 (3.10 버전)
     - name: Set up Python
       uses: actions/setup-python@v4
       with:
         python-version: '3.10'
 
-    # 3. 라이브러리 설치
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
         pip install -r requirements.txt
 
-    # 4. 설정 파일 생성 (중요!)
-    # Secrets에 저장된 키를 가져와서 가짜 config 파일을 만듭니다.
-    # DB는 안 쓰지만 코드가 에러나지 않게 가짜 정보를 넣어줍니다.
     - name: Create Config Files
       run: |
         mkdir -p config
         echo "${{ secrets.LOSTARK_API_KEY }}" > config/api.txt
         echo '{"host": "skip", "user": "skip", "password": "skip", "database": "skip", "port": 3306}' > config/db.txt
 
-    # 5. 수집 스크립트 실행
     - name: Run Data Collector
       run: python economy/data_collector.py
 
-    # 6. 결과(CSV)를 저장소에 저장 (Commit & Push)
-    # 데이터가 변경되었을 때만 실행됩니다.
     - name: Commit and Push Data
       run: |
         git config --global user.name "GitHub Action"
