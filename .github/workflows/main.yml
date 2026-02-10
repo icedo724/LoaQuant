@@ -2,7 +2,7 @@ name: Lost Ark Data Collector
 
 on:
   schedule:
-    - cron:
+    - cron: '0 * * * *'
   workflow_dispatch:
 
 permissions:
