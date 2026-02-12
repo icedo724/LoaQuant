@@ -1,6 +1,6 @@
 import streamlit as st
 import pandas as pd
-import plotly.express as px
+import plotly.graph_objects as go
 import os
 
 # -----------------------------------------------------------------------------
@@ -12,11 +12,23 @@ st.set_page_config(
 )
 
 st.title("Lost Ark Market Trends")
+
 st.markdown("""
     <style>
     .stTabs [data-baseweb="tab-list"] { gap: 20px; }
-    .stTabs [data-baseweb="tab"] { height: 50px; white-space: pre-wrap; background-color: #f0f2f6; border-radius: 4px 4px 0 0; gap: 1px; padding-top: 10px; padding-bottom: 10px; }
-    .stTabs [aria-selected="true"] { background-color: #ffffff; border-bottom: 2px solid #ff4b4b; }
+    .stTabs [data-baseweb="tab"] { 
+        height: 50px; 
+        white-space: pre-wrap; 
+        background-color: #ffffff; 
+        border-radius: 4px 4px 0 0; 
+        gap: 1px; 
+        padding-top: 10px; 
+        padding-bottom: 10px; 
+    }
+    .stTabs [aria-selected="true"] { 
+        background-color: #ffffff; 
+        border-bottom: 2px solid #ff4b4b; 
+    }
     </style>
     """, unsafe_allow_html=True)
 st.info("GitHub Actions를 통해 매시간 수집된 데이터를 시각화합니다.")
@@ -54,6 +66,53 @@ def preprocess_for_chart(df, selected_items):
     return df_transposed
 
 
+def draw_stock_chart(df, title_text=""):
+    if df.empty:
+        st.warning("표시할 데이터가 없습니다.")
+        return
+
+    fig = go.Figure()
+
+    for column in df.columns:
+        fig.add_trace(go.Scatter(
+            x=df.index,
+            y=df[column],
+            mode='lines',
+            name=column,
+            line=dict(width=2),
+            hovertemplate='%{y:,.0f} 골드<extra></extra>'
+        ))
+
+    fig.update_layout(
+        title=dict(text=title_text, font=dict(size=18)),
+        hovermode="x unified",
+        template="plotly_white",
+        xaxis=dict(
+            showgrid=True,
+            gridcolor='#eee',
+            rangeslider=dict(visible=True),
+            type="date"
+        ),
+        yaxis=dict(
+            showgrid=True,
+            gridcolor='#eee',
+            tickformat=',',
+            title="가격 (골드)"
+        ),
+        legend=dict(
+            orientation="h",
+            yanchor="bottom",
+            y=1.02,
+            xanchor="right",
+            x=1
+        ),
+        margin=dict(l=20, r=20, t=60, b=20),
+        height=500
+    )
+
+    st.plotly_chart(fig, use_container_width=True)
+
+
 # -----------------------------------------------------------------------------
 # 3. 데이터 로드
 # -----------------------------------------------------------------------------
@@ -85,7 +144,8 @@ with tab1:
 
         chart_data = preprocess_for_chart(df_materials, selected)
         if not chart_data.empty:
-            st.line_chart(chart_data)
+            draw_stock_chart(chart_data, "강화 재료 시세 변동")
+
         st.divider()
         st.markdown("#### 교환 효율 분석 (5:1 비율)")
 
@@ -112,24 +172,24 @@ with tab1:
                 st.caption("비교하고 싶은 **하위 재료**와 **상위 재료**를 위 목록에서 **함께 선택**해주세요.")
             else:
                 for low, high in active_pairs:
-                    st.markdown(f"##### [{high}] 제작 효율 분석")
+                    st.markdown(f"##### [{high}] 교환 효율 분석")
 
                     df_pair = chart_data[[low, high]].copy()
                     df_pair[f"{low} (x5)"] = df_pair[low] * 5
 
                     plot_cols = [f"{low} (x5)", high]
-                    st.line_chart(df_pair[plot_cols])
 
-                    last_low_unit_cost = df_pair[low].iloc[-1] * 5
+                    draw_stock_chart(df_pair[plot_cols], f"{low} 5묶음 vs {high} 1묶음 가격 비교")
+
+                    last_low_total_cost = df_pair[low].iloc[-1] * 5
                     last_high_unit_cost = df_pair[high].iloc[-1]
 
-                    diff_unit = last_high_unit_cost - last_low_unit_cost
-                    diff_100 = diff_unit * 100
+                    diff_unit = last_high_unit_cost - last_low_total_cost
 
                     if diff_unit > 0:
-                        st.success(f"결론: **{high} 100개(묶음)**를 교환으로 얻으면, 그냥 사는 것보다 **{diff_100:,.0f}골드** 이득입니다!")
+                        st.success(f"결론: **{high} 1묶음(100개)** 을 교환으로 얻으면, 그냥 사는 것보다 **약 {diff_unit:,.0f} 골드** 이득입니다!")
                     elif diff_unit < 0:
-                        st.error(f"결론: **{high} 100개(묶음)**를 그냥 경매장에서 사는 게 교환보다 **{abs(diff_100):,.0f}골드** 이득입니다!")
+                        st.error(f"결론: **{high} 1묶음(100개)** 을 그냥 경매장에서 사는 게 교환보다 **약 {abs(diff_unit):,.0f} 골드** 이득입니다!")
                     else:
                         st.info("가격이 동일합니다.")
     else:
@@ -148,7 +208,8 @@ with tab2:
 
         selected_life = st.multiselect("재료 선택", filtered_items, default=filtered_items[:5], key="life_select")
         chart_data = preprocess_for_chart(df_lifeskill, selected_life)
-        if not chart_data.empty: st.line_chart(chart_data)
+        if not chart_data.empty:
+            draw_stock_chart(chart_data)
     else:
         st.warning("데이터 준비 중입니다.")
 
@@ -160,7 +221,8 @@ with tab3:
         defaults = [i for i in ["정령의 회복약", "암흑 수류탄", "파괴 폭탄"] if i in all_battle]
         selected_battle = st.multiselect("아이템 선택", all_battle, default=defaults, key="battle_select")
         chart_data = preprocess_for_chart(df_battle, selected_battle)
-        if not chart_data.empty: st.line_chart(chart_data)
+        if not chart_data.empty:
+            draw_stock_chart(chart_data)
     else:
         st.warning("데이터 준비 중입니다.")
 
@@ -171,7 +233,8 @@ with tab4:
         all_eng = df_engravings['item_name'].unique()
         selected_eng = st.multiselect("각인서 선택", all_eng, default=all_eng[:1], key="eng_select")
         chart_data = preprocess_for_chart(df_engravings, selected_eng)
-        if not chart_data.empty: st.line_chart(chart_data)
+        if not chart_data.empty:
+            draw_stock_chart(chart_data)
     else:
         st.warning("데이터 준비 중입니다.")
 
@@ -183,7 +246,7 @@ with tab5:
         selected_gems = st.multiselect("보석 선택", all_gems, default=all_gems, key="gem_select")
         chart_data = preprocess_for_chart(df_gems, selected_gems)
         if not chart_data.empty:
-            st.line_chart(chart_data)
+            draw_stock_chart(chart_data)
             st.caption("※ 경매장 즉시 구매가 최저가 기준입니다.")
     else:
         st.warning("데이터 준비 중입니다.")
