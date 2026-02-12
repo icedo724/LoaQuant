@@ -8,11 +8,11 @@ from datetime import datetime, timedelta
 # 1. 페이지 설정
 # -----------------------------------------------------------------------------
 st.set_page_config(
-    page_title="Loconomy",
+    page_title="LoaQuant",
     layout="wide"
 )
 
-st.title("Lost Ark Market Trends")
+st.title("LoaQuant")
 
 st.markdown("""
     <style>

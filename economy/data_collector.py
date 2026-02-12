@@ -126,7 +126,17 @@ def collect_market_data():
         "정제된 파괴강석",
         "최상급 오레하 융화 재료"
     ]
-    items_special = ["장인의 재봉술", "장인의 야금술"]
+
+    items_special = [
+        "장인의 재봉술",
+        "장인의 야금술",
+        "재봉술 : 업화 [11-14]",
+        "재봉술 : 업화 [15-18]",
+        "재봉술 : 업화 [19-20]",
+        "야금술 : 업화 [11-14]",
+        "야금술 : 업화 [15-18]",
+        "야금술 : 업화 [19-20]"
+    ]
 
     def fetch_market_items(target_list, result_list, category_code=50000, tier_val=None):
         print(f"\n[강화 재료] 수집 중 ({target_list[0]} 등)")
