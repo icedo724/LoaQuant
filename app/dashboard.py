@@ -183,7 +183,6 @@ with tab1:
 
                     last_low_total_cost = df_pair[low].iloc[-1] * 5
                     last_high_unit_cost = df_pair[high].iloc[-1]
-
                     diff_unit = last_high_unit_cost - last_low_total_cost
 
                     if diff_unit > 0:
