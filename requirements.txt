@@ -5,13 +5,13 @@ pandas
 numpy
 sqlalchemy
 pymysql
+cryptography
 scipy
 statsmodels
 matplotlib
 seaborn
 plotly
-streamlit
+streamlit>=1.40.0
 ipykernel
 notebook
-streamlit
-plotly
+altair<5
