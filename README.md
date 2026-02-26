@@ -12,7 +12,7 @@ GitHub Actions를 활용해 로스트아크 경매장의 주요 품목 최저가
 
 ### 서비스 링크
 수집된 데이터는 Streamlit을 통해 대시보드에서 실시간으로 확인할 수 있습니다.
-**[LoaQuant 바로가기](https://lostarkeconomy.streamlit.app/)**
+**[LoaQuant 바로가기]([https://lostarkeconomy.streamlit.app/](https://loaquant.streamlit.app/))**
 
 ### 주요 기능
 **1. 시세 추적**
