@@ -12,3 +12,7 @@ __pycache__/
 venv/
 env/
 .env
+
+# 골드 정보 원본 제외
+data/gold/discord_data.har
+data/gold/chatlog.csv
