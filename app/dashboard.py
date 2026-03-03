@@ -482,7 +482,6 @@ tab_gold, tab1, tab2, tab3, tab4, tab5 = st.tabs(["골드 시세", "강화 재�
 with tab_gold:
     st.subheader("일별 골드 시세 (100골드 당 현금 비율)")
     if df_gold is not None and not df_gold.empty:
-        # 날짜 처리를 위해 datetime으로 변환
         df_gold_dt = df_gold.copy()
         df_gold_dt['Date'] = pd.to_datetime(df_gold_dt['Date'])
 
@@ -499,6 +498,20 @@ with tab_gold:
         max_date = df_gold_dt['Date'].max()
         kor_days = ['월', '화', '수', '목', '금', '토', '일']
 
+        event_logs = load_event_logs()
+        for name, date_str in event_logs.items():
+            try:
+                event_date = pd.to_datetime(date_str).replace(hour=0, minute=0)
+                if min_date <= event_date <= max_date:
+                    fig_gold.add_vline(x=event_date, line_width=2, line_dash="dot", line_color="#E74C3C")
+                    fig_gold.add_annotation(
+                        x=event_date, y=1.05, yref="paper",
+                        text=name, showarrow=False,
+                        font=dict(color="#E74C3C", size=11),
+                        bgcolor="rgba(255, 255, 255, 0.9)"
+                    )
+            except:
+                continue
         tick_vals = pd.date_range(start=min_date, end=max_date, freq='D')
         tick_text = [d.strftime(f'%m/%d ({kor_days[d.weekday()]})') for d in tick_vals]
 
@@ -516,7 +529,7 @@ with tab_gold:
                 ticktext=tick_text,
                 tickangle=0
             ),
-            yaxis=dict(title="현금 비율", showgrid=True, gridcolor='#eee'),
+            yaxis=dict(title="현금 비율 (100:X)", showgrid=True, gridcolor='#eee'),
             margin=dict(l=20, r=20, t=50, b=20),
             height=400
         )
