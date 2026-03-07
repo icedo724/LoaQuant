@@ -35,10 +35,13 @@ jobs:
     - name: Run Data Collector
       run: python economy/data_collector.py
 
+    - name: Run Volume Collector
+      run: python economy/volume_collector.py
+
     - name: Commit and Push Data
       run: |
         git config --global user.name "GitHub Action"
         git config --global user.email "action@github.com"
         git add data/*.csv
-        git commit -m "Update market data (Automated)" || exit 0
+        git commit -m "Update market prices & volume (Automated)" || exit 0
         git push

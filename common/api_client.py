@@ -42,6 +42,23 @@ class LostArkAPI:
 
         return self._send_request(url, payload)
 
+    def get_market_item_stats(self, item_id):
+        url = f"{self.base_url}/markets/items/{item_id}"
+        try:
+            response = requests.get(url, headers=self.headers)
+            if response.status_code == 200:
+                return response.json()
+            elif response.status_code == 429:
+                print("Rate Limit 도달. 60초 대기")
+                time.sleep(60)
+                return self.get_market_item_stats(item_id)
+            else:
+                print(f"API 오류 ({response.status_code}): {response.text}")
+                return None
+        except Exception as e:
+            print(f"연결 실패: {e}")
+            return None
+
     def _send_request(self, url, payload):
         try:
             response = requests.post(url, headers=self.headers, json=payload)

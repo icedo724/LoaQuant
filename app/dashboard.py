@@ -106,6 +106,7 @@ def get_loa_daily_avg_df(df):
         return pd.DataFrame()
 
     df_adj = df.copy()
+    # 로스트아크 기준일(06시) 반영
     df_adj.index = df_adj.index - pd.Timedelta(hours=6)
 
     daily_avg = df_adj.groupby(df_adj.index.date).mean()
@@ -357,7 +358,6 @@ def draw_stock_chart(df, title_text="", is_cash=False):
         for name, date_str in event_logs.items():
             try:
                 event_date = pd.to_datetime(date_str).replace(hour=0, minute=0)
-                # 이벤트 날짜가 일평균 데이터의 날짜 범위 안에 있을 때만 표시
                 if d_min_date <= event_date <= d_max_date:
                     fig_daily.add_vline(x=event_date, line_width=2, line_dash="dot", line_color="#E74C3C")
                     fig_daily.add_annotation(
@@ -431,11 +431,141 @@ def draw_stock_chart(df, title_text="", is_cash=False):
         st.dataframe(display_df.style.map(style_variance))
 
 
+# -----------------------------------------------------------------------------
+# 🌟 신규: 요일별 평균 가격 차트 그리기 함수 추가
+# -----------------------------------------------------------------------------
+def draw_day_of_week_chart(df, is_cash=False):
+    if df is None or df.empty:
+        return
+
+    # 일평균 데이터 베이스 사용 (intra-day 노이즈 제거)
+    daily_df = get_loa_daily_avg_df(df)
+    if daily_df.empty:
+        return
+
+    # 날짜 인덱스에서 요일 추출 (0=월, 6=일)
+    daily_df['weekday'] = daily_df.index.weekday
+
+    # 요일별 평균 계산
+    weekday_avg = daily_df.groupby('weekday').mean()
+
+    # 0~6 모두 표시되도록 인덱스 재정비
+    weekday_avg = weekday_avg.reindex(range(7))
+    kor_days = ['월', '화', '수', '목', '금', '토', '일']
+
+    fig = go.Figure()
+    colors = ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd', '#8c564b', '#e377c2', '#7f7f7f', '#bcbd22',
+              '#17becf']
+
+    unit_label = "원" if is_cash else "골드"
+    hover_fmt = '%{x}요일 - 평균: %{y:,.2f} ' + unit_label + '<extra></extra>' if is_cash else '%{x}요일 - 평균: %{y:,.0f} ' + unit_label + '<extra></extra>'
+
+    # 각 아이템별로 Bar 추가
+    for idx, column in enumerate(weekday_avg.columns):
+        if column == 'weekday': continue
+        fig.add_trace(go.Bar(
+            x=kor_days,
+            y=weekday_avg[column],
+            name=column,
+            marker_color=colors[idx % len(colors)],
+            hovertemplate=hover_fmt
+        ))
+
+    fig.update_layout(
+        hovermode="x unified",
+        template="plotly_white",
+        barmode='group',
+        xaxis=dict(title="요일", showgrid=False),
+        yaxis=dict(showgrid=True, gridcolor='#eee', tickformat=',.2f' if is_cash else ',', title=f"평균가 ({unit_label})"),
+        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
+        margin=dict(l=20, r=20, t=30, b=20),
+        height=350
+    )
+    st.plotly_chart(fig, use_container_width=True)
+
+
+# -----------------------------------------------------------------------------
+# 거래량 차트 그리기 함수
+# -----------------------------------------------------------------------------
+def draw_volume_chart(df_vol, selected_items):
+    if df_vol is None or df_vol.empty or not selected_items:
+        return
+
+    subset = df_vol[df_vol['item_name'].isin(selected_items)].copy()
+    if subset.empty:
+        return
+
+    subset = subset.set_index('item_name')
+    df_t = subset.T
+    df_t.index = pd.to_datetime(df_t.index, errors='coerce')
+
+    st.markdown("#### 📊 일일 거래량 추이")
+
+    fig = go.Figure()
+    colors = ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd', '#8c564b', '#e377c2', '#7f7f7f', '#bcbd22',
+              '#17becf']
+
+    for idx, column in enumerate(df_t.columns):
+        fig.add_trace(go.Bar(
+            x=df_t.index,
+            y=df_t[column],
+            name=column,
+            marker_color=colors[idx % len(colors)],
+            hovertemplate='%{x|%m/%d} - 거래량: %{y:,.0f} 개<extra></extra>'
+        ))
+
+    kor_days = ['월', '화', '수', '목', '금', '토', '일']
+    min_date = df_t.index.min()
+    max_date = df_t.index.max()
+
+    event_logs = load_event_logs()
+    for name, date_str in event_logs.items():
+        try:
+            event_date = pd.to_datetime(date_str).replace(hour=0, minute=0)
+            if pd.notnull(min_date) and pd.notnull(max_date) and min_date <= event_date <= max_date:
+                fig.add_vline(x=event_date, line_width=2, line_dash="dot", line_color="#E74C3C")
+                fig.add_annotation(
+                    x=event_date, y=1.05, yref="paper",
+                    text=name, showarrow=False,
+                    font=dict(color="#E74C3C", size=11),
+                    bgcolor="rgba(255, 255, 255, 0.9)"
+                )
+        except:
+            continue
+
+    if pd.notnull(min_date) and pd.notnull(max_date):
+        tick_vals = pd.date_range(start=min_date, end=max_date, freq='D')
+        tick_text = [d.strftime(f'%m/%d ({kor_days[d.weekday()]})') for d in tick_vals]
+    else:
+        tick_vals, tick_text = [], []
+
+    fig.update_layout(
+        hovermode="x unified",
+        template="plotly_white",
+        barmode='group',
+        xaxis=dict(
+            showgrid=True, gridcolor='#eee',
+            type="date",
+            tickmode='array', tickvals=tick_vals, ticktext=tick_text,
+            tickangle=0
+        ),
+        yaxis=dict(showgrid=True, gridcolor='#eee', tickformat=',', title="거래량 (개)"),
+        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
+        margin=dict(l=20, r=20, t=30, b=20),
+        height=350
+    )
+    st.plotly_chart(fig, use_container_width=True)
+
+
+# -----------------------------------------------------------------------------
+# 데이터 로드
+# -----------------------------------------------------------------------------
 df_materials = load_data("market_materials.csv")
 df_lifeskill = load_data("market_lifeskill.csv")
 df_battle = load_data("market_battleitems.csv")
 df_engravings = load_data("market_engravings.csv")
 df_gems = load_data("market_gems.csv")
+df_volume = load_data("market_volume.csv")
 df_gold = load_gold_data()
 
 apply_gold = False
@@ -444,7 +574,7 @@ latest_gold = 100
 
 if df_gold is not None and not df_gold.empty:
     st.markdown("---")
-    apply_gold = st.checkbox("골드 가치 반영하기 (모든 아이템 시세를 현금 절대 가치로 환산)")
+    apply_gold = st.checkbox("🪙 골드 가치 반영하기 (모든 아이템 시세를 현금 절대 가치로 환산)")
     gold_dict = dict(zip(df_gold['Date'], df_gold['Gold_Price']))
     latest_gold = df_gold['Gold_Price'].iloc[-1]
     st.markdown("---")
@@ -477,7 +607,7 @@ if df_materials is not None and not df_materials.empty:
 else:
     st.info("데이터를 불러오는 중이거나 수집된 데이터가 없습니다.")
 
-tab_gold, tab1, tab2, tab3, tab4, tab5 = st.tabs(["골드 시세", "강화 재료", "생활 재료", "배틀 아이템", "각인서", "보석"])
+tab_gold, tab1, tab2, tab3, tab4, tab5 = st.tabs(["🪙 골드 시세", "강화 재료", "생활 재료", "배틀 아이템", "각인서", "보석"])
 
 with tab_gold:
     st.subheader("일별 골드 시세 (100골드 당 현금 비율)")
@@ -550,6 +680,14 @@ with tab1:
         if not chart_data.empty:
             draw_stock_chart(chart_data, "강화 재료", apply_gold)
 
+            # 🌟 요일별 추세 (토글 형태)
+            with st.expander("📅 요일별 평균 가격 추세 보기"):
+                draw_day_of_week_chart(chart_data, apply_gold)
+
+            # 거래량 차트 배치
+            st.divider()
+            draw_volume_chart(df_volume, selected)
+
             st.divider()
             st.markdown("#### 교환 효율 분석")
             exchange_pairs = [
@@ -589,7 +727,16 @@ with tab2:
         items = sorted(df_lifeskill[df_lifeskill['sub_category'] == cat]['item_name'].unique())
         sel_life = st.multiselect("재료 선택", items, default=items[:1])
         c_data = get_chart_df(df_lifeskill, sel_life)
-        if not c_data.empty: draw_stock_chart(c_data, f"생활 재료 ({cat})", apply_gold)
+
+        if not c_data.empty:
+            draw_stock_chart(c_data, f"생활 재료 ({cat})", apply_gold)
+
+            # 🌟 요일별 추세 (토글 형태)
+            with st.expander("📅 요일별 평균 가격 추세 보기"):
+                draw_day_of_week_chart(c_data, apply_gold)
+
+            st.divider()
+            draw_volume_chart(df_volume, sel_life)
 
 with tab3:
     st.subheader("배틀 아이템 시세")
@@ -597,7 +744,16 @@ with tab3:
         items = sorted(df_battle['item_name'].unique())
         sel_battle = st.multiselect("아이템 선택", items, default=items[:1])
         c_data = get_chart_df(df_battle, sel_battle)
-        if not c_data.empty: draw_stock_chart(c_data, "배틀 아이템", apply_gold)
+
+        if not c_data.empty:
+            draw_stock_chart(c_data, "배틀 아이템", apply_gold)
+
+            # 🌟 요일별 추세 (토글 형태)
+            with st.expander("📅 요일별 평균 가격 추세 보기"):
+                draw_day_of_week_chart(c_data, apply_gold)
+
+            st.divider()
+            draw_volume_chart(df_volume, sel_battle)
 
 with tab4:
     st.subheader("유물 각인서 시세")
@@ -605,7 +761,12 @@ with tab4:
         items = sorted(df_engravings['item_name'].unique())
         sel_eng = st.multiselect("각인서 선택", items, default=items[:1])
         c_data = get_chart_df(df_engravings, sel_eng)
-        if not c_data.empty: draw_stock_chart(c_data, "유물 각인서", apply_gold)
+        if not c_data.empty:
+            draw_stock_chart(c_data, "유물 각인서", apply_gold)
+
+            # 🌟 요일별 추세
+            with st.expander("📅 요일별 평균 가격 추세 보기"):
+                draw_day_of_week_chart(c_data, apply_gold)
 
 with tab5:
     st.subheader("T4 보석 최저가")
@@ -613,4 +774,9 @@ with tab5:
         items = sorted(df_gems['item_name'].unique())
         sel_gems = st.multiselect("보석 선택", items, default=items[:2])
         c_data = get_chart_df(df_gems, sel_gems)
-        if not c_data.empty: draw_stock_chart(c_data, "T4 보석", apply_gold)
+        if not c_data.empty:
+            draw_stock_chart(c_data, "T4 보석", apply_gold)
+
+            # 🌟 요일별 추세
+            with st.expander("📅 요일별 평균 가격 추세 보기"):
+                draw_day_of_week_chart(c_data, apply_gold)
