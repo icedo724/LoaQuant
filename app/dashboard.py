@@ -430,10 +430,6 @@ def draw_stock_chart(df, title_text="", is_cash=False):
 
         st.dataframe(display_df.style.map(style_variance))
 
-
-# -----------------------------------------------------------------------------
-# 🌟 신규: 요일별 평균 가격 차트 그리기 함수 추가
-# -----------------------------------------------------------------------------
 def draw_day_of_week_chart(df, is_cash=False):
     if df is None or df.empty:
         return
@@ -574,7 +570,7 @@ latest_gold = 100
 
 if df_gold is not None and not df_gold.empty:
     st.markdown("---")
-    apply_gold = st.checkbox("🪙 골드 가치 반영하기 (모든 아이템 시세를 현금 절대 가치로 환산)")
+    apply_gold = st.checkbox("골드 가치 반영하기 (모든 아이템 시세를 현금 절대 가치로 환산)")
     gold_dict = dict(zip(df_gold['Date'], df_gold['Gold_Price']))
     latest_gold = df_gold['Gold_Price'].iloc[-1]
     st.markdown("---")
@@ -607,7 +603,7 @@ if df_materials is not None and not df_materials.empty:
 else:
     st.info("데이터를 불러오는 중이거나 수집된 데이터가 없습니다.")
 
-tab_gold, tab1, tab2, tab3, tab4, tab5 = st.tabs(["🪙 골드 시세", "강화 재료", "생활 재료", "배틀 아이템", "각인서", "보석"])
+tab_gold, tab1, tab2, tab3, tab4, tab5 = st.tabs(["골드 시세", "강화 재료", "생활 재료", "배틀 아이템", "각인서", "보석"])
 
 with tab_gold:
     st.subheader("일별 골드 시세 (100골드 당 현금 비율)")
@@ -680,8 +676,7 @@ with tab1:
         if not chart_data.empty:
             draw_stock_chart(chart_data, "강화 재료", apply_gold)
 
-            # 🌟 요일별 추세 (토글 형태)
-            with st.expander("📅 요일별 평균 가격 추세 보기"):
+            with st.expander("요일별 평균 가격 추세 보기"):
                 draw_day_of_week_chart(chart_data, apply_gold)
 
             # 거래량 차트 배치
@@ -731,8 +726,7 @@ with tab2:
         if not c_data.empty:
             draw_stock_chart(c_data, f"생활 재료 ({cat})", apply_gold)
 
-            # 🌟 요일별 추세 (토글 형태)
-            with st.expander("📅 요일별 평균 가격 추세 보기"):
+            with st.expander("요일별 평균 가격 추세 보기"):
                 draw_day_of_week_chart(c_data, apply_gold)
 
             st.divider()
@@ -748,8 +742,7 @@ with tab3:
         if not c_data.empty:
             draw_stock_chart(c_data, "배틀 아이템", apply_gold)
 
-            # 🌟 요일별 추세 (토글 형태)
-            with st.expander("📅 요일별 평균 가격 추세 보기"):
+            with st.expander("요일별 평균 가격 추세 보기"):
                 draw_day_of_week_chart(c_data, apply_gold)
 
             st.divider()
@@ -764,8 +757,7 @@ with tab4:
         if not c_data.empty:
             draw_stock_chart(c_data, "유물 각인서", apply_gold)
 
-            # 🌟 요일별 추세
-            with st.expander("📅 요일별 평균 가격 추세 보기"):
+            with st.expander("요일별 평균 가격 추세 보기"):
                 draw_day_of_week_chart(c_data, apply_gold)
 
 with tab5:
@@ -777,6 +769,5 @@ with tab5:
         if not c_data.empty:
             draw_stock_chart(c_data, "T4 보석", apply_gold)
 
-            # 🌟 요일별 추세
-            with st.expander("📅 요일별 평균 가격 추세 보기"):
+            with st.expander("요일별 평균 가격 추세 보기"):
                 draw_day_of_week_chart(c_data, apply_gold)

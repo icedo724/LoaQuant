@@ -203,7 +203,7 @@ def collect_market_data():
         "8레벨 겁화의 보석", "9레벨 겁화의 보석", "10레벨 겁화의 보석",
         "8레벨 작열의 보석", "9레벨 작열의 보석", "10레벨 작열의 보석"
     ]
-    print(f"\[보석] 경매장 시세 수집 중")
+    print(f"\n[보석] 경매장 시세 수집 중")
     for gem_name in target_gems:
         data = api.get_auction_items(category_code=210000, item_name=gem_name, item_tier=4)
         if data and 'Items' in data:
