@@ -32,7 +32,6 @@ def update_wide_csv(new_data_list, file_name, current_time_col, category_col=Non
     current_df = pd.DataFrame(new_data_list)
     if current_df.empty:
         return
-
     merge_keys = ['item_name']
     cols_to_keep = ['item_name', 'current_min_price']
 
@@ -42,32 +41,20 @@ def update_wide_csv(new_data_list, file_name, current_time_col, category_col=Non
 
     current_df = current_df.drop_duplicates(subset=merge_keys)
     mini_df = current_df[cols_to_keep].copy()
+
     mini_df.rename(columns={'current_min_price': current_time_col}, inplace=True)
 
     if os.path.exists(full_path):
         try:
-            # 기존 CSV 파일 읽기
             old_df = pd.read_csv(full_path)
-
-            # 기존 파일이 비어있거나 'item_name' 컬럼이 아예 날아가버린 손상된 상태라면 덮어쓰기 진행
-            if old_df.empty or 'item_name' not in old_df.columns:
-                mini_df.to_csv(full_path, index=False, encoding='utf-8-sig')
-                print(f"   -> [파일 초기화 및 생성] {file_name} (기존 파일 손상)")
-                return
-
             actual_merge_keys = [k for k in merge_keys if k in old_df.columns]
 
-            # 병합(Merge) 진행
             merged_df = pd.merge(old_df, mini_df, on=actual_merge_keys, how='outer')
             merged_df.to_csv(full_path, index=False, encoding='utf-8-sig')
             print(f"   -> [파일 저장] {file_name}")
-
         except Exception as e:
-            # 오류가 발생하면 기존 데이터를 무시하고 새로 덮어써서 구조를 복구함
-            print(f"   -> [Error 복구 중] 병합 실패로 파일 덮어쓰기 ({file_name}): {e}")
-            mini_df.to_csv(full_path, index=False, encoding='utf-8-sig')
+            print(f"   -> [Error] 병합 실패 ({file_name}): {e}")
     else:
-        # 파일이 없을 때는 신규 생성
         mini_df.to_csv(full_path, index=False, encoding='utf-8-sig')
         print(f"   -> [신규 생성] {file_name}")
 
@@ -119,15 +106,21 @@ def collect_market_data():
     # 2. 강화 재료 (T4/T3)
     # ---------------------------------------------------------
     items_t4 = [
+        # 기본 재료
         "운명의 파편 주머니(대)", "빙하의 숨결", "용암의 숨결",
+        # [그룹 1] 돌파석
         "운명의 돌파석", "위대한 운명의 돌파석",
+        # [그룹 2] 파괴석
         "운명의 파괴석", "운명의 파괴석 결정",
+        # [그룹 3] 수호석
         "운명의 수호석", "운명의 수호석 결정",
+        # [그룹 4] 융화 재료
         "아비도스 융화 재료", "상급 아비도스 융화 재료"
     ]
 
     items_t3 = [
         "명예의 파편 주머니(대)", "태양의 은총", "태양의 축복", "태양의 가호",
+        # [교환 대상]
         "찬란한 명예의 돌파석",
         "정제된 수호강석",
         "정제된 파괴강석",
@@ -135,9 +128,14 @@ def collect_market_data():
     ]
 
     items_special = [
-        "장인의 재봉술", "장인의 야금술",
-        "재봉술 : 업화 [11-14]", "재봉술 : 업화 [15-18]", "재봉술 : 업화 [19-20]",
-        "야금술 : 업화 [11-14]", "야금술 : 업화 [15-18]", "야금술 : 업화 [19-20]"
+        "장인의 재봉술",
+        "장인의 야금술",
+        "재봉술 : 업화 [11-14]",
+        "재봉술 : 업화 [15-18]",
+        "재봉술 : 업화 [19-20]",
+        "야금술 : 업화 [11-14]",
+        "야금술 : 업화 [15-18]",
+        "야금술 : 업화 [19-20]"
     ]
 
     def fetch_market_items(target_list, result_list, category_code=50000, tier_val=None):
@@ -164,8 +162,10 @@ def collect_market_data():
     # 3. 배틀 아이템
     # ---------------------------------------------------------
     print(f"\n[배틀 아이템] 수집 중")
+    # 배틀 아이템(Category: 60000) 전체 페이지 순회
     for page in range(1, 20):
         b_data = api.get_market_items(category_code=60000, page_no=page)
+
         if b_data and 'Items' in b_data and len(b_data['Items']) > 0:
             for item in b_data['Items']:
                 data_battle.append({
@@ -197,14 +197,13 @@ def collect_market_data():
             break
 
     # ---------------------------------------------------------
-    # 5. 보석
+    # 5. 보석 (T4 8~10레벨)
     # ---------------------------------------------------------
     target_gems = [
         "8레벨 겁화의 보석", "9레벨 겁화의 보석", "10레벨 겁화의 보석",
         "8레벨 작열의 보석", "9레벨 작열의 보석", "10레벨 작열의 보석"
     ]
-    # 🌟 오타 수정: \[ -> \n[
-    print(f"\n[보석] 경매장 시세 수집 중")
+    print(f"\[보석] 경매장 시세 수집 중")
     for gem_name in target_gems:
         data = api.get_auction_items(category_code=210000, item_name=gem_name, item_tier=4)
         if data and 'Items' in data:
@@ -226,9 +225,10 @@ def collect_market_data():
         time.sleep(0.3)
 
     # ---------------------------------------------------------
-    # 6. 저장 (CSV & DB)
+    # 6. 저장 (DB & CSV)
     # ---------------------------------------------------------
 
+    # CSV 저장
     print("\nCSV 파일 업데이트")
     if data_materials: update_wide_csv(data_materials, "market_materials.csv", now_str)
     if data_lifeskill: update_wide_csv(data_lifeskill, "market_lifeskill.csv", now_str, category_col="sub_category")
@@ -236,18 +236,11 @@ def collect_market_data():
     if data_engravings: update_wide_csv(data_engravings, "market_engravings.csv", now_str)
     if data_gems: update_wide_csv(data_gems, "market_gems.csv", now_str)
 
-    # 🌟 DB 저장 (스키마 오류 방지)
+    # DB 저장
     all_rows = data_materials + data_lifeskill + data_battle + data_engravings + data_gems
     if all_rows and engine:
         try:
             df_db = pd.DataFrame(all_rows)
-
-            # DB 테이블에 존재하지 않는 컬럼들을 제거한 뒤 INSERT 진행
-            cols_to_drop = ['sub_category', 'item_id']
-            for col in cols_to_drop:
-                if col in df_db.columns:
-                    df_db = df_db.drop(columns=[col])
-
             df_db.to_sql(name='market_prices', con=engine, if_exists='append', index=False)
             print(f"\nDB 저장 완료: 총 {len(df_db)}건")
         except Exception as e:
