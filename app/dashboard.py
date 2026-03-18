@@ -205,7 +205,6 @@ def draw_stock_chart(df, title_text="", is_cash=False):
 
     plot_df = df.copy()
 
-    # 1. 메인 라인 차트 컨트롤
     col1, col2 = st.columns([1, 3])
     with col1:
         show_bollinger = st.checkbox("볼린저 밴드", value=False, key=f"bollinger_{title_text}")
@@ -240,8 +239,7 @@ def draw_stock_chart(df, title_text="", is_cash=False):
             """, unsafe_allow_html=True)
 
     fig = go.Figure()
-    colors = ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd', '#8c564b', '#e377c2', '#7f7f7f', '#bcbd22',
-              '#17becf']
+    colors = ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd', '#8c564b', '#e377c2', '#7f7f7f', '#bcbd22', '#17becf']
     unit_label = "원" if is_cash else "골드"
     hover_fmt = '%{x|%m/%d %H:%M} - %{y:,.2f} ' + unit_label + '<extra></extra>' if is_cash else '%{x|%m/%d %H:%M} - %{y:,.0f} ' + unit_label + '<extra></extra>'
 
@@ -257,14 +255,11 @@ def draw_stock_chart(df, title_text="", is_cash=False):
             lower = ma - (std * 2)
             fill_color_rgba = f"rgba{tuple(list(int(line_color.lstrip('#')[i:i + 2], 16) for i in (0, 2, 4)) + [0.1])}"
 
-            fig.add_trace(go.Scatter(x=plot_df.index, y=upper, mode='lines', line=dict(width=0), showlegend=False,
-                                     hoverinfo='skip'))
-            fig.add_trace(
-                go.Scatter(x=plot_df.index, y=lower, mode='lines', name=f"{column} 볼린저 영역", line=dict(width=0),
-                           fill='tonexty', fillcolor=fill_color_rgba, showlegend=True, hoverinfo='skip'))
-            fig.add_trace(
-                go.Scatter(x=plot_df.index, y=ma, mode='lines', line=dict(width=1, dash='dot', color=line_color),
-                           hoverinfo='skip', showlegend=False))
+            fig.add_trace(go.Scatter(x=plot_df.index, y=upper, mode='lines', line=dict(width=0), showlegend=False, hoverinfo='skip'))
+            fig.add_trace(go.Scatter(x=plot_df.index, y=lower, mode='lines', name=f"{column} 볼린저 영역", line=dict(width=0),
+                                     fill='tonexty', fillcolor=fill_color_rgba, showlegend=True, hoverinfo='skip'))
+            fig.add_trace(go.Scatter(x=plot_df.index, y=ma, mode='lines', line=dict(width=1, dash='dot', color=line_color),
+                                     hoverinfo='skip', showlegend=False))
 
     min_date, max_date = plot_df.index.min(), plot_df.index.max()
 
@@ -297,7 +292,6 @@ def draw_stock_chart(df, title_text="", is_cash=False):
     )
     st.plotly_chart(fig, use_container_width=True, key=f"main_chart_{title_text}")
 
-    # 2. 캔들스틱 차트
     st.markdown("#### 시세 캔들스틱 차트 및 예측")
     col_tf1, col_tf2, col_tf3 = st.columns([1, 1, 2])
     with col_tf1:
@@ -316,7 +310,6 @@ def draw_stock_chart(df, title_text="", is_cash=False):
             ohlc.index = pd.to_datetime(ohlc.index.date)
         else:
             ohlc = df_adj[column].resample('W-TUE').agg(['first', 'max', 'min', 'last']).dropna()
-            # 주간 기준일(화요일 마감)을 수요일(시작일)로 강제 이동하여 차트와 이벤트 선 정렬
             ohlc.index = pd.to_datetime(ohlc.index.date) - pd.Timedelta(days=6)
 
         ohlc.columns = ['Open', 'High', 'Low', 'Close']
@@ -325,8 +318,7 @@ def draw_stock_chart(df, title_text="", is_cash=False):
         fig_candle.add_trace(go.Candlestick(
             x=ohlc.index,
             open=ohlc['Open'], high=ohlc['High'], low=ohlc['Low'], close=ohlc['Close'],
-            name=column,
-            increasing_line_color='#d9534f', decreasing_line_color='#0275d8',
+            name=column, increasing_line_color='#d9534f', decreasing_line_color='#0275d8',
             increasing_fillcolor='#d9534f', decreasing_fillcolor='#0275d8'
         ))
 
@@ -336,16 +328,14 @@ def draw_stock_chart(df, title_text="", is_cash=False):
                 line_color = colors[idx % len(colors)]
 
                 fig_candle.add_trace(go.Scatter(
-                    x=forecast['ds'], y=forecast['yhat'],
-                    mode='lines', name=f"AI 예측",
+                    x=forecast['ds'], y=forecast['yhat'], mode='lines', name=f"AI 예측",
                     line=dict(width=2, dash='dot', color=line_color)
                 ))
                 fill_rgba = f"rgba{tuple(list(int(line_color.lstrip('#')[i:i + 2], 16) for i in (0, 2, 4)) + [0.15])}"
                 fig_candle.add_trace(go.Scatter(
                     x=forecast['ds'].tolist() + forecast['ds'][::-1].tolist(),
                     y=forecast['yhat_upper'].tolist() + forecast['yhat_lower'][::-1].tolist(),
-                    fill='toself', fillcolor=fill_rgba,
-                    line=dict(color='rgba(255,255,255,0)'),
+                    fill='toself', fillcolor=fill_rgba, line=dict(color='rgba(255,255,255,0)'),
                     showlegend=False, hoverinfo='skip'
                 ))
 
@@ -358,13 +348,10 @@ def draw_stock_chart(df, title_text="", is_cash=False):
         c_tick_text = [d.strftime('%m.%d(수)') for d in c_tick_vals]
 
         fig_candle.update_layout(
-            title=f"[{column}] {timeframe} 시세 변동",
-            xaxis_rangeslider_visible=False,
+            title=f"[{column}] {timeframe} 시세 변동", xaxis_rangeslider_visible=False,
             hovermode="x unified", template="plotly_white",
-            xaxis=dict(showgrid=True, gridcolor='#eee', type="date", tickmode='array', tickvals=c_tick_vals,
-                       ticktext=c_tick_text),
-            yaxis=dict(showgrid=True, gridcolor='#eee', tickformat=',.2f' if is_cash else ',',
-                       title=f"가격 ({unit_label})"),
+            xaxis=dict(showgrid=True, gridcolor='#eee', type="date", tickmode='array', tickvals=c_tick_vals, ticktext=c_tick_text),
+            yaxis=dict(showgrid=True, gridcolor='#eee', tickformat=',.2f' if is_cash else ',', title=f"가격 ({unit_label})"),
             margin=dict(l=20, r=20, t=40, b=20), height=350, showlegend=False
         )
         st.plotly_chart(fig_candle, use_container_width=True, key=f"candle_chart_{title_text}_{column}")
@@ -399,8 +386,7 @@ def draw_day_of_week_chart(df, title_text="", is_cash=False):
         ))
 
     fig.update_layout(
-        title="수요일 대비 요일별 시세 변동률",
-        hovermode="x unified", template="plotly_white", barmode='group',
+        title="수요일 대비 요일별 시세 변동률", hovermode="x unified", template="plotly_white", barmode='group',
         xaxis=dict(title="요일", showgrid=False),
         yaxis=dict(showgrid=True, gridcolor='#eee', tickformat='+.1f', ticksuffix='%', title="변동률 (%)"),
         legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
@@ -421,11 +407,9 @@ def draw_summary_table(df, is_cash=False):
 
     for col in daily_desc.columns:
         if is_cash:
-            display_df[col] = [f"{price:,.2f} ({diff:+,.2f})" if not pd.isna(diff) else f"{price:,.2f} (-)" for
-                               price, diff in zip(daily_desc[col], diff_desc[col])]
+            display_df[col] = [f"{price:,.2f} ({diff:+,.2f})" if not pd.isna(diff) else f"{price:,.2f} (-)" for price, diff in zip(daily_desc[col], diff_desc[col])]
         else:
-            display_df[col] = [f"{price:,.0f} ({diff:+,.0f})" if not pd.isna(diff) else f"{price:,.0f} (-)" for
-                               price, diff in zip(daily_desc[col], diff_desc[col])]
+            display_df[col] = [f"{price:,.0f} ({diff:+,.0f})" if not pd.isna(diff) else f"{price:,.0f} (-)" for price, diff in zip(daily_desc[col], diff_desc[col])]
 
     kor_days = ['월', '화', '수', '목', '금', '토', '일']
     display_df.index = [d.strftime(f'%Y-%m-%d ({kor_days[d.weekday()]})') for d in display_df.index]
@@ -435,12 +419,9 @@ def draw_summary_table(df, is_cash=False):
             if "(-)" in val: return "color: gray;"
             start, end = val.rfind('(') + 1, val.rfind(')')
             change = float(val[start:end].replace(',', ''))
-            if change > 0:
-                return 'color: #d9534f; font-weight: bold;'
-            elif change < 0:
-                return 'color: #0275d8; font-weight: bold;'
-            else:
-                return 'color: gray;'
+            if change > 0: return 'color: #d9534f; font-weight: bold;'
+            elif change < 0: return 'color: #0275d8; font-weight: bold;'
+            else: return 'color: gray;'
         except:
             return ""
 
@@ -462,8 +443,7 @@ def draw_volume_chart(df_vol, selected_items, title_text=""):
 
     st.markdown("#### 일일 거래량 추이")
     fig = go.Figure()
-    colors = ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd', '#8c564b', '#e377c2', '#7f7f7f', '#bcbd22',
-              '#17becf']
+    colors = ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd', '#8c564b', '#e377c2', '#7f7f7f', '#bcbd22', '#17becf']
 
     for idx, column in enumerate(df_t.columns):
         fig.add_trace(go.Bar(
@@ -484,8 +464,7 @@ def draw_volume_chart(df_vol, selected_items, title_text=""):
 
     fig.update_layout(
         hovermode="x unified", template="plotly_white", barmode='group',
-        xaxis=dict(showgrid=True, gridcolor='#eee', type="date", tickmode='array', tickvals=tick_vals,
-                   ticktext=tick_text, tickangle=0),
+        xaxis=dict(showgrid=True, gridcolor='#eee', type="date", tickmode='array', tickvals=tick_vals, ticktext=tick_text, tickangle=0),
         yaxis=dict(showgrid=True, gridcolor='#eee', tickformat=',', title="거래량 (개)"),
         legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
         margin=dict(l=20, r=20, t=30, b=20), height=350
@@ -521,7 +500,6 @@ def get_chart_df(df, sel):
     if apply_gold and not c_data.empty: c_data = apply_gold_conversion(c_data, gold_dict, latest_gold)
     return c_data
 
-
 if df_materials is not None and not df_materials.empty:
     time_cols = pd.to_datetime(df_materials.columns, errors='coerce')
     time_cols = time_cols[time_cols.notnull()].sort_values()
@@ -540,7 +518,7 @@ if df_materials is not None and not df_materials.empty:
 else:
     st.info("데이터를 불러오는 중이거나 수집된 데이터가 없습니다.")
 
-tab_gold, tab1, tab2, tab3, tab4, tab5 = st.tabs(["골드 시세", "강화 재료", "생활 재료", "배틀 아이템", "각인서", "보석"])
+tab_gold, tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs(["골드 시세", "강화 재료", "생활 재료", "배틀 아이템", "각인서", "보석", "거래대금"])
 
 with tab_gold:
     st.subheader("일별 골드 시세 (100골드 당 현금 비율)")
@@ -568,8 +546,7 @@ with tab_gold:
 
         fig_gold.update_layout(
             title="최근 골드 시세 흐름", hovermode="x unified", template="plotly_white",
-            xaxis=dict(title="수집 날짜", showgrid=True, gridcolor='#eee', type="date", tickmode='array',
-                       tickvals=tick_vals, ticktext=tick_text, tickangle=0),
+            xaxis=dict(title="수집 날짜", showgrid=True, gridcolor='#eee', type="date", tickmode='array', tickvals=tick_vals, ticktext=tick_text, tickangle=0),
             yaxis=dict(title="현금 비율 (100:X)", showgrid=True, gridcolor='#eee'),
             margin=dict(l=20, r=20, t=50, b=20), height=400
         )
@@ -587,8 +564,39 @@ with tab1:
         chart_data = get_chart_df(df_materials, selected)
 
         if not chart_data.empty:
-            draw_stock_chart(chart_data, "강화 재료", apply_gold)
+            target_predict_items = ['상급 아비도스 융화 재료', '아비도스 융화 재료', '운명의 파괴석', '운명의 파괴석 결정']
+            active_predict_items = [item for item in selected if item in target_predict_items]
+            
+            if active_predict_items:
+                st.markdown("#### 오늘의 시세 예측 (Prophet 모델 기반)")
+                cols = st.columns(len(active_predict_items))
+                
+                for i, item in enumerate(active_predict_items):
+                    with cols[i]:
+                        df_item = chart_data[[item]].copy()
+                        df_item.index = df_item.index - pd.Timedelta(hours=6)
+                        ohlc = df_item[item].resample('1D').agg(['last']).dropna()
+                        
+                        with st.spinner(f"예측 중..."):
+                            forecast = get_prophet_forecast(ohlc['last'], periods=1)
+                        
+                        today_pred = forecast.iloc[-1]['yhat']
+                        last_actual = ohlc['last'].iloc[-1]
+                        diff = today_pred - last_actual
+                        diff_pct = (diff / last_actual) * 100
+                        
+                        unit_str = "원" if apply_gold else "G"
+                        format_str = ",.2f" if apply_gold else ",.0f"
+                        
+                        st.metric(
+                            label=f"{item} 예측가", 
+                            value=f"{today_pred:{format_str}} {unit_str}", 
+                            delta=f"{diff:+{format_str}} {unit_str} ({diff_pct:+.2f}%)"
+                        )
+                st.divider()
 
+            # 차트 그리기
+            draw_stock_chart(chart_data, "강화 재료", apply_gold)
             draw_day_of_week_chart(chart_data, "강화 재료", apply_gold)
             with st.expander("데이터 요약 표 (일일 기준)"):
                 draw_summary_table(chart_data, apply_gold)
@@ -612,10 +620,8 @@ with tab1:
                     diff = df_pair[high].iloc[-1] - (df_pair[low].iloc[-1] * 5)
                     unit_str = "원" if apply_gold else "골드"
                     diff_val_str = f"{abs(diff):,.2f}" if apply_gold else f"{abs(diff):,.0f}"
-                    if diff > 0:
-                        st.success(f"{low} → {high} 교환 : 약 {diff_val_str} {unit_str} 이득")
-                    elif diff < 0:
-                        st.error(f"{low} → {high} 교환 : 약 {diff_val_str} {unit_str} 손해")
+                    if diff > 0: st.success(f"{low} → {high} 교환 : 약 {diff_val_str} {unit_str} 이득")
+                    elif diff < 0: st.error(f"{low} → {high} 교환 : 약 {diff_val_str} {unit_str} 손해")
     else:
         st.warning("데이터 수집 중입니다.")
 
@@ -671,3 +677,68 @@ with tab5:
             draw_day_of_week_chart(c_data, "T4 보석", apply_gold)
             with st.expander("데이터 요약 표 (일일 기준)"):
                 draw_summary_table(c_data, apply_gold)
+
+with tab6:
+    st.subheader("거시 경제 흐름 (거래대금 순위)")
+    st.caption("선택한 기간 동안의 `일평균 단가 × 일일 거래량`을 합산하여 총 거래대금을 추산합니다.")
+    
+    period_options = {"최근 1일": 1, "최근 3일": 3, "최근 7일": 7, "최근 30일": 30, "전체 (수집 기간)": None}
+    selected_period = st.radio("조회 기간 선택", list(period_options.keys()), horizontal=True)
+    target_days = period_options[selected_period]
+
+    def calc_trade_value(df_p, df_v, item_list):
+        p_data = get_chart_df(df_p, item_list) # 골드 가치 환산 로직 자동 적용
+        v_data = preprocess_for_chart(df_v, item_list)
+
+        if p_data.empty or v_data.empty: return pd.DataFrame()
+
+        p_daily = get_loa_daily_avg_df(p_data)
+        v_daily = v_data.resample('1D').sum() # 일일 거래량 취합
+
+        # 두 데이터의 날짜 인덱스 맞추기
+        p_daily, v_daily = p_daily.align(v_daily, join='inner')
+
+        # 기간 필터링
+        if target_days is not None:
+            cutoff = p_daily.index.max() - pd.Timedelta(days=target_days-1)
+            p_daily = p_daily[p_daily.index >= cutoff]
+            v_daily = v_daily[v_daily.index >= cutoff]
+
+        mean_p = p_daily.mean()
+        sum_v = v_daily.sum()
+        trade_val = mean_p * sum_v
+        
+        unit_str = "원" if apply_gold else "G"
+
+        res = pd.DataFrame({
+            '품목명': mean_p.index,
+            f'평균 단가 ({unit_str})': mean_p.values,
+            '총 거래량 (개)': sum_v.values,
+            f'총 거래대금 ({unit_str})': trade_val.values
+        }).set_index('품목명')
+
+        return res.sort_values(by=f'총 거래대금 ({unit_str})', ascending=False)
+
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        st.markdown("#### 강화 재료")
+        if df_materials is not None and df_volume is not None:
+            mat_res = calc_trade_value(df_materials, df_volume, df_materials['item_name'].unique())
+            if not mat_res.empty:
+                st.dataframe(mat_res.style.format({
+                    f'평균 단가 ({"원" if apply_gold else "G"})': '{:,.2f}', 
+                    '총 거래량 (개)': '{:,.0f}', 
+                    f'총 거래대금 ({"원" if apply_gold else "G"})': '{:,.0f}'
+                }), use_container_width=True, height=500)
+                
+    with col2:
+        st.markdown("#### 생활 재료")
+        if df_lifeskill is not None and df_volume is not None:
+            life_res = calc_trade_value(df_lifeskill, df_volume, df_lifeskill['item_name'].unique())
+            if not life_res.empty:
+                st.dataframe(life_res.style.format({
+                    f'평균 단가 ({"원" if apply_gold else "G"})': '{:,.2f}', 
+                    '총 거래량 (개)': '{:,.0f}', 
+                    f'총 거래대금 ({"원" if apply_gold else "G"})': '{:,.0f}'
+                }), use_container_width=True, height=500)
