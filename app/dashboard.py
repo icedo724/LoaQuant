@@ -721,10 +721,19 @@ with tab6:
     st.subheader("거시 경제 흐름 (거래대금 순위)")
     st.caption("선택한 기간 동안의 `일평균 단가 × 일일 거래량`을 합산하여 총 거래대금을 추산합니다.")
     
-    # 분석 기준 기간 선택 UI
-    period_options = {"최근 1일": 1, "최근 3일": 3, "최근 7일": 7, "최근 30일": 30, "전체 (수집 기간)": None}
+    # 분석 기준 기간 선택 UI (사용자 지정 추가)
+    period_options = {"최근 1일": 1, "최근 3일": 3, "최근 7일": 7, "최근 30일": 30, "전체 (수집 기간)": None, "사용자 지정": "custom"}
     selected_period = st.radio("조회 기간 선택", list(period_options.keys()), horizontal=True)
     target_days = period_options[selected_period]
+
+    # 사용자 지정을 선택했을 경우 달력 위젯 표시
+    custom_date_range = None
+    if target_days == "custom":
+        custom_date_range = st.date_input(
+            "조회할 시작일과 종료일을 선택하세요",
+            value=[], # 초기값 비움
+            max_value=datetime.today().date()
+        )
 
     def calc_trade_value(df_p, df_v, item_list):
         """특정 기간 동안의 총 거래 대금을 계산하여 내림차순 정렬된 데이터프레임을 반환"""
@@ -739,11 +748,26 @@ with tab6:
         # 두 데이터의 날짜 인덱스를 교집합으로 맞춤
         p_daily, v_daily = p_daily.align(v_daily, join='inner')
 
-        # 사용자가 선택한 기간만큼 데이터 필터링
-        if target_days is not None:
+        # 기간 필터링 로직
+        if target_days == "custom":
+            # 시작일과 종료일이 모두 선택되었을 때만 필터링 수행
+            if custom_date_range and len(custom_date_range) == 2:
+                start_date, end_date = custom_date_range
+                start_date = pd.to_datetime(start_date)
+                end_date = pd.to_datetime(end_date)
+                p_daily = p_daily[(p_daily.index >= start_date) & (p_daily.index <= end_date)]
+                v_daily = v_daily[(v_daily.index >= start_date) & (v_daily.index <= end_date)]
+            else:
+                # 날짜 선택이 완료되지 않은 경우 빈 데이터프레임 반환
+                return pd.DataFrame() 
+        elif target_days is not None:
+            # 정해진 일수(1, 3, 7, 30일)에 따른 필터링
             cutoff = p_daily.index.max() - pd.Timedelta(days=target_days-1)
             p_daily = p_daily[p_daily.index >= cutoff]
             v_daily = v_daily[v_daily.index >= cutoff]
+
+        # 데이터가 필터링된 후 남아있지 않으면 빈 데이터프레임 반환
+        if p_daily.empty: return pd.DataFrame()
 
         mean_p = p_daily.mean()
         sum_v = v_daily.sum()
@@ -772,6 +796,8 @@ with tab6:
                     '총 거래량 (개)': '{:,.0f}', 
                     f'총 거래대금 ({"원" if apply_gold else "G"})': '{:,.0f}'
                 }), use_container_width=True, height=500)
+            elif target_days == "custom" and (not custom_date_range or len(custom_date_range) < 2):
+                st.info("기간(시작일과 종료일)을 모두 선택해 주세요.")
                 
     with col2:
         st.markdown("#### 생활 재료")
