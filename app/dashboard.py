@@ -224,7 +224,7 @@ def analyze_market_status(df, column_name, is_cash=False):
 def draw_stock_chart(df, title_text="", is_cash=False):
     """
     주요 시세 라인 차트 및 분석 리포트 카드, 
-    캔들스틱 차트 및 AI 예측 영역을 모두 렌더링
+    캔들스틱 차트 및 예측 영역을 모두 렌더링
     """
     if df.empty:
         st.warning("표시할 데이터가 없습니다.")
@@ -351,7 +351,7 @@ def draw_stock_chart(df, title_text="", is_cash=False):
             increasing_fillcolor='#d9534f', decreasing_fillcolor='#0275d8'
         ))
 
-        # AI 예측 곡선 오버레이
+        # 예측 곡선 오버레이
         if show_prophet and timeframe == "1일":
             with st.spinner(f"{column} 예측 모델 연산 중..."):
                 forecast = get_prophet_forecast(ohlc['Close'])
@@ -602,12 +602,12 @@ with tab1:
         chart_data = get_chart_df(df_materials, selected)
 
         if not chart_data.empty:
-            # 주요 품목 대상 AI 일일 예측가 하이라이트 표시
+            # 주요 품목 대상 일일 예측가 하이라이트 표시
             target_predict_items = ['상급 아비도스 융화 재료', '아비도스 융화 재료', '운명의 파괴석', '운명의 파괴석 결정']
             active_predict_items = [item for item in selected if item in target_predict_items]
             
             if active_predict_items:
-                st.markdown("#### AI 오늘의 시세 예측 (Prophet 기반)")
+                st.markdown("#### 오늘의 시세 예측 (Prophet 기반)")
                 cols = st.columns(len(active_predict_items))
                 
                 for i, item in enumerate(active_predict_items):
