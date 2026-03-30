@@ -20,5 +20,6 @@ data/gold/chatlog.csv
 
 # 리포트
 report.md
-powerbi_export.py
-data/powerbi/
+
+# 시각화 결과물
+analysis/output/
