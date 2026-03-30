@@ -818,7 +818,8 @@ with tab_patch:
 
         _daily_preview = _load_patch_daily()
         _all_items = get_items_by_category(cat_key, _daily_preview)
-        sel_items = st.multiselect("분석할 품목 선택", _all_items, default=_all_items[:4] if _all_items else [], key="patch_items")
+        _default_items = [i for i in ['운명의 파괴석 결정', '상급 아비도스 융화 재료'] if i in _all_items]
+        sel_items = st.multiselect("분석 품목", _all_items, default=_default_items, key="patch_items")
 
         run_btn = st.button("분석 실행", use_container_width=False, key="patch_run")
 
