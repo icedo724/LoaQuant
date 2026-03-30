@@ -785,12 +785,17 @@ with tab6:
 
 
 @st.cache_data(show_spinner=False, ttl=600)
-def _run_patch_analysis(patch_name: str, patch_date_str: str, category: str):
+def _load_patch_daily():
+    # 전체 마켓 데이터 로드 (캐시)
+    return load_all_markets(MARKET_FILES)
+
+
+@st.cache_data(show_spinner=False, ttl=600)
+def _run_patch_analysis(patch_name: str, patch_date_str: str, items: tuple):
     # 패치 반사실 분석 실행 (캐시)
-    daily = load_all_markets(MARKET_FILES)
-    items = get_items_by_category(category, daily)
+    daily = _load_patch_daily()
     patch_date = pd.Timestamp(patch_date_str)
-    summary_df, results = analyze_patch(patch_name, items, daily, patch_date)
+    summary_df, results = analyze_patch(patch_name, list(items), daily, patch_date)
     return summary_df, results
 
 
@@ -804,34 +809,40 @@ with tab_patch:
     else:
         patch_options = {name: ts.strftime('%Y-%m-%d') for name, ts in sorted(events.items(), key=lambda x: x[1], reverse=True)}
 
-        col_p1, col_p2, col_p3 = st.columns([2, 2, 1])
+        col_p1, col_p2 = st.columns([2, 2])
         with col_p1:
             sel_patch = st.selectbox("패치 선택", list(patch_options.keys()), key="patch_sel")
         with col_p2:
             cat_key = st.selectbox("카테고리", list(CATEGORY_KR.keys()),
                                    format_func=lambda k: CATEGORY_KR[k], key="patch_cat")
-        with col_p3:
-            st.markdown("<div style='margin-top:28px'></div>", unsafe_allow_html=True)
-            run_btn = st.button("분석 실행", use_container_width=True)
+
+        _daily_preview = _load_patch_daily()
+        _all_items = get_items_by_category(cat_key, _daily_preview)
+        sel_items = st.multiselect("분석할 품목 선택", _all_items, default=_all_items[:4] if _all_items else [], key="patch_items")
+
+        run_btn = st.button("분석 실행", use_container_width=False, key="patch_run")
 
         if run_btn:
-            patch_date_str = patch_options[sel_patch]
-            with st.spinner(f"[{sel_patch}] Prophet 학습 중..."):
-                summary_df, results = _run_patch_analysis(sel_patch, patch_date_str, cat_key)
-
-            if summary_df is None or not results:
-                st.error("분석 가능한 아이템이 없습니다. (사전/사후 데이터 부족)")
+            if not sel_items:
+                st.warning("품목을 하나 이상 선택하세요.")
             else:
-                fig = build_plotly_chart(results, sel_patch, pd.Timestamp(patch_date_str))
-                st.plotly_chart(fig, use_container_width=True, key="patch_plotly")
+                patch_date_str = patch_options[sel_patch]
+                with st.spinner(f"[{sel_patch}] Prophet 학습 중..."):
+                    summary_df, results = _run_patch_analysis(sel_patch, patch_date_str, tuple(sel_items))
 
-                st.markdown("#### 패치 임팩트 요약")
-                st.dataframe(
-                    summary_df.style.format({
-                        '실제 평균': '{:,.1f}',
-                        '반사실 평균': '{:,.1f}',
-                        '차이': '{:+,.1f}',
-                        '변화율(%)': '{:+.1f}',
-                    }),
-                    use_container_width=True,
-                )
+                if summary_df is None or not results:
+                    st.error("분석 가능한 아이템이 없습니다. (사전/사후 데이터 부족)")
+                else:
+                    fig = build_plotly_chart(results, sel_patch, pd.Timestamp(patch_date_str))
+                    st.plotly_chart(fig, use_container_width=True, key="patch_plotly")
+
+                    st.markdown("#### 패치 임팩트 요약")
+                    st.dataframe(
+                        summary_df.style.format({
+                            '실제 평균': '{:,.1f}',
+                            '반사실 평균': '{:,.1f}',
+                            '차이': '{:+,.1f}',
+                            '변화율(%)': '{:+.1f}',
+                        }),
+                        use_container_width=True,
+                    )

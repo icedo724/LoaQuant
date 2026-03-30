@@ -126,14 +126,18 @@ def calc_impact(res: dict, label: str, patch_date: pd.Timestamp) -> dict:
 
 def build_plotly_chart(results: dict, patch_name: str, patch_date: pd.Timestamp) -> go.Figure:
     # 실제 vs 반사실 인터랙티브 시계열 차트 반환 (저장 없음)
-    n_cols = 2
-    n_rows = max(1, (len(results) + 1) // n_cols)
+    n_items = len(results)
+    n_cols  = min(2, n_items)
+    n_rows  = max(1, (n_items + n_cols - 1) // n_cols)
+    v_sp    = min(0.08, 0.6 / n_rows)   if n_rows > 1 else 0.0
+    h_sp    = min(0.06, 0.6 / n_cols)   if n_cols > 1 else 0.0
+    titles  = list(results.keys()) + [''] * (n_rows * n_cols - n_items)
 
     fig = make_subplots(
         rows=n_rows, cols=n_cols,
-        subplot_titles=list(results.keys()),
-        vertical_spacing=0.12,
-        horizontal_spacing=0.06,
+        subplot_titles=titles,
+        vertical_spacing=v_sp,
+        horizontal_spacing=h_sp,
     )
 
     C = dict(actual='#4C9EEB', cf='#FF6B6B', band='rgba(255,107,107,0.15)')
