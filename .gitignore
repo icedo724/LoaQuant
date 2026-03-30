@@ -1,18 +1,24 @@
 # .gitignore
 
-# 설정 파일 및 비밀 정보 제외
+# 설정 파일
 config/api.txt
 config/db.txt
+.claude/
 
-# 파이썬 캐시 파일 제외
+# 파이썬 캐시
 __pycache__/
 *.pyc
 
-# 가상환경 폴더 제외
+# 가상환경
 venv/
 env/
 .env
 
-# 골드 정보 원본 제외
+# 골드 정보 원본
 data/gold/discord_data.har
 data/gold/chatlog.csv
+
+# 리포트
+report.md
+powerbi_export.py
+data/powerbi/
