@@ -94,8 +94,8 @@ def run_counterfactual(series: pd.Series, patch_date: pd.Timestamp) -> dict:
         daily_seasonality=False,
         weekly_seasonality=True,
         yearly_seasonality=False,
-        changepoint_prior_scale=0.05,
-        interval_width=0.90,
+        changepoint_prior_scale=0.15,
+        interval_width=0.80,
     )
     m.fit(pd.DataFrame({'ds': train.index, 'y': train.values}))
     fc = m.predict(pd.DataFrame({'ds': post.index})).set_index('ds')

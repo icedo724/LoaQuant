@@ -51,7 +51,8 @@ def get_prophet_forecast(series_data, periods=7):
     # Prophet 주간 계절성 기반 n일 예측
     df_p = series_data.dropna().reset_index()
     df_p.columns = ['ds', 'y']
-    m = Prophet(daily_seasonality=False, yearly_seasonality=False, weekly_seasonality=True)
+    m = Prophet(daily_seasonality=False, yearly_seasonality=False, weekly_seasonality=True,
+                changepoint_prior_scale=0.25, interval_width=0.80)
     m.fit(df_p)
     future = m.make_future_dataframe(periods=periods)
     return m.predict(future)
