@@ -599,23 +599,29 @@ with tab1:
                         df_item = chart_data[[item]].copy()
                         df_item.index = df_item.index - pd.Timedelta(hours=6)
                         ohlc = df_item[item].resample('1D').agg(['last']).dropna()
-                        
+
+                        today_date = pd.Timestamp.now().normalize()
+                        today_prices = df_item[df_item.index.normalize() == today_date][item].dropna()
+                        today_avg = today_prices.mean() if not today_prices.empty else None
+
                         with st.spinner(f"예측 중..."):
                             forecast = get_prophet_forecast(ohlc['last'], periods=1)
-                        
+
                         today_pred = forecast.iloc[-1]['yhat']
                         last_actual = ohlc['last'].iloc[-1]
                         diff = today_pred - last_actual
                         diff_pct = (diff / last_actual) * 100
-                        
+
                         unit_str = "원" if apply_gold else "G"
                         format_str = ",.2f" if apply_gold else ",.0f"
-                        
+
                         st.metric(
-                            label=f"[{item}] 예측가", 
-                            value=f"{today_pred:{format_str}} {unit_str}", 
+                            label=f"[{item}] 예측가",
+                            value=f"{today_pred:{format_str}} {unit_str}",
                             delta=f"{diff:+{format_str}} {unit_str} ({diff_pct:+.2f}%)"
                         )
+                        if today_avg is not None:
+                            st.caption(f"오늘 평균가  {today_avg:{format_str}} {unit_str}")
                 st.divider()
 
             draw_stock_chart(chart_data, "강화 재료", apply_gold)
