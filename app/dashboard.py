@@ -402,7 +402,7 @@ def draw_stock_chart(df, title_text="", is_cash=False):
                     model_label = "선형+요일 예측"
                 else:
                     forecast = get_prophet_forecast(ohlc['Close'])
-                    model_label = "Prophet 예측"
+                    model_label = "시계열 예측"
 
             if forecast is not None:
                 line_color = colors[idx % len(colors)]
@@ -571,7 +571,18 @@ latest_gold = 100
 
 if df_gold is not None and not df_gold.empty:
     st.markdown("---")
-    apply_gold = st.checkbox("골드 가치 반영하기 (시세를 현금 절대 가치로 환산)")
+    col_gold, col_model_info = st.columns([2, 3])
+    with col_gold:
+        apply_gold = st.checkbox("골드 가치 반영하기 (시세를 현금 절대 가치로 환산)")
+    with col_model_info:
+        st.markdown("""
+<div style="font-size:0.82rem; color:#666; padding: 4px 0;">
+    <b>📈 시계열 예측 모델 안내</b><br>
+    파괴석 계열 — Prophet &nbsp;|&nbsp;
+    아비도스 계열 — 선형+요일 (OLS) &nbsp;|&nbsp;
+    이외 품목 — Prophet <span style="color:#e67e22;">(예측이 불안정할 수 있음)</span>
+</div>
+""", unsafe_allow_html=True)
     gold_dict = dict(zip(df_gold['Date'], df_gold['Gold_Price']))
     latest_gold = df_gold['Gold_Price'].iloc[-1]
     st.markdown("---")
@@ -651,7 +662,7 @@ with tab1:
             active_predict_items = [item for item in selected if item in target_predict_items]
 
             if active_predict_items:
-                st.markdown("#### 오늘의 시세 예측")
+                st.markdown("#### 오늘의 시세 예측 (시계열 모델 기반)")
                 cols = st.columns(len(active_predict_items))
 
                 for i, item in enumerate(active_predict_items):
@@ -670,7 +681,7 @@ with tab1:
                                 model_label = "선형+요일"
                             else:
                                 forecast = get_prophet_forecast(ohlc['last'], periods=1)
-                                model_label = "Prophet"
+                                model_label = "시계열"
 
                         if forecast is None:
                             st.caption(f"**{item}**: 데이터 부족")
