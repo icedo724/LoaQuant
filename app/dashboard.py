@@ -49,13 +49,67 @@ st.info("GitHub Actions를 통해 매시간 수집된 데이터를 시각화합�
 @st.cache_data(show_spinner=False, ttl=3600)
 def get_prophet_forecast(series_data, periods=7):
     # Prophet 주간 계절성 기반 n일 예측
+    # cps=0.05: 95일 단일 트렌드 아이템에서 과적합 방지 (0.25는 naive MAPE 대비 2배 손실)
+    # n_changepoints=10: 95일 데이터에 기본값 25는 과다
+    # interval_width=0.95: 실측 커버리지가 목표(80%)의 절반 미달이므로 구간 확대
     df_p = series_data.dropna().reset_index()
     df_p.columns = ['ds', 'y']
     m = Prophet(daily_seasonality=False, yearly_seasonality=False, weekly_seasonality=True,
-                changepoint_prior_scale=0.25, interval_width=0.80)
+                changepoint_prior_scale=0.05, n_changepoints=10, interval_width=0.95)
     m.fit(df_p)
     future = m.make_future_dataframe(periods=periods)
     return m.predict(future)
+
+
+@st.cache_data(show_spinner=False, ttl=3600)
+def get_linreg_forecast(series_data, periods=7):
+    # 선형 추세 + 요일 효과 예측 (아비도스 융화재료 계열용)
+    # Prophet은 CV<5% 안정형 아이템에서 과소추정된 CI와 높은 MAPE를 보임
+    import numpy as np
+    from sklearn.linear_model import LinearRegression
+
+    s = series_data.dropna()
+    n = len(s)
+    if n < 7:
+        return None
+
+    t = np.arange(n).reshape(-1, 1)
+    dow = pd.get_dummies(s.index.dayofweek, prefix='d', drop_first=True).values
+    X = np.hstack([t, dow])
+    y = s.values
+
+    model = LinearRegression().fit(X, y)
+    residual_std = np.std(y - model.predict(X))
+
+    future_dates = pd.date_range(s.index[-1] + pd.Timedelta(days=1), periods=periods, freq='D')
+    t_future = np.arange(n, n + periods).reshape(-1, 1)
+    dow_future = pd.get_dummies(
+        pd.Series(future_dates.dayofweek), prefix='d', drop_first=True
+    ).reindex(columns=[f'd_{i}' for i in range(1, 7)], fill_value=0).values
+    X_future = np.hstack([t_future, dow_future])
+
+    yhat_future = model.predict(X_future)
+    # 95% CI
+    margin = 1.96 * residual_std
+
+    all_dates = pd.DatetimeIndex(list(s.index) + list(future_dates))
+    t_all = np.arange(len(all_dates)).reshape(-1, 1)
+    dow_all = pd.get_dummies(
+        pd.Series(all_dates.dayofweek), prefix='d', drop_first=True
+    ).reindex(columns=[f'd_{i}' for i in range(1, 7)], fill_value=0).values
+    X_all = np.hstack([t_all, dow_all])
+    yhat_all = model.predict(X_all)
+
+    return pd.DataFrame({
+        'ds': all_dates,
+        'yhat': yhat_all,
+        'yhat_lower': yhat_all - margin,
+        'yhat_upper': yhat_all + margin,
+    })
+
+
+# CV<5% 안정형 아이템 — Prophet 대비 MAPE 10배 이상 우월하고 CI 커버리지도 높음
+LINREG_ITEMS = {'아비도스 융화 재료', '상급 아비도스 융화 재료'}
 
 
 def add_smart_event_logs(fig, event_logs, min_date, max_date, y_pos=1.05):
@@ -316,7 +370,7 @@ def draw_stock_chart(df, title_text="", is_cash=False):
     with col_tf1:
         timeframe = st.radio("기준 시간 단위", ["1일", "1주"], horizontal=True, key=f"tf_{title_text}")
     with col_tf2:
-        show_prophet = st.checkbox("Prophet 예측 (1일 기준)", value=False, key=f"prophet_{title_text}")
+        show_forecast = st.checkbox("AI 예측 (1일 기준)", value=False, key=f"prophet_{title_text}")
     with col_tf3:
         show_events_candle = st.checkbox("이벤트 로그 표시", value=True, key=f"events_candle_{title_text}")
 
@@ -341,13 +395,19 @@ def draw_stock_chart(df, title_text="", is_cash=False):
             increasing_fillcolor='#d9534f', decreasing_fillcolor='#0275d8'
         ))
 
-        if show_prophet and timeframe == "1일":
+        if show_forecast and timeframe == "1일":
             with st.spinner(f"{column} 예측 모델 연산 중..."):
-                forecast = get_prophet_forecast(ohlc['Close'])
-                line_color = colors[idx % len(colors)]
+                if column in LINREG_ITEMS:
+                    forecast = get_linreg_forecast(ohlc['Close'])
+                    model_label = "선형+요일 예측"
+                else:
+                    forecast = get_prophet_forecast(ohlc['Close'])
+                    model_label = "Prophet 예측"
 
+            if forecast is not None:
+                line_color = colors[idx % len(colors)]
                 fig_candle.add_trace(go.Scatter(
-                    x=forecast['ds'], y=forecast['yhat'], mode='lines', name=f"AI 예측",
+                    x=forecast['ds'], y=forecast['yhat'], mode='lines', name=model_label,
                     line=dict(width=2, dash='dot', color=line_color)
                 ))
                 fill_rgba = f"rgba{tuple(list(int(line_color.lstrip('#')[i:i + 2], 16) for i in (0, 2, 4)) + [0.15])}"
@@ -355,7 +415,7 @@ def draw_stock_chart(df, title_text="", is_cash=False):
                     x=forecast['ds'].tolist() + forecast['ds'][::-1].tolist(),
                     y=forecast['yhat_upper'].tolist() + forecast['yhat_lower'][::-1].tolist(),
                     fill='toself', fillcolor=fill_rgba, line=dict(color='rgba(255,255,255,0)'),
-                    showlegend=False, hoverinfo='skip'
+                    name="95% 구간", showlegend=True, hoverinfo='skip'
                 ))
 
         c_min_date, c_max_date = ohlc.index.min(), ohlc.index.max()
@@ -589,11 +649,11 @@ with tab1:
         if not chart_data.empty:
             target_predict_items = ['상급 아비도스 융화 재료', '아비도스 융화 재료', '운명의 파괴석', '운명의 파괴석 결정']
             active_predict_items = [item for item in selected if item in target_predict_items]
-            
+
             if active_predict_items:
-                st.markdown("#### 오늘의 시세 예측 (Prophet 기반)")
+                st.markdown("#### 오늘의 시세 예측")
                 cols = st.columns(len(active_predict_items))
-                
+
                 for i, item in enumerate(active_predict_items):
                     with cols[i]:
                         df_item = chart_data[[item]].copy()
@@ -605,7 +665,16 @@ with tab1:
                         today_avg = today_prices.mean() if not today_prices.empty else None
 
                         with st.spinner(f"예측 중..."):
-                            forecast = get_prophet_forecast(ohlc['last'], periods=1)
+                            if item in LINREG_ITEMS:
+                                forecast = get_linreg_forecast(ohlc['last'], periods=1)
+                                model_label = "선형+요일"
+                            else:
+                                forecast = get_prophet_forecast(ohlc['last'], periods=1)
+                                model_label = "Prophet"
+
+                        if forecast is None:
+                            st.caption(f"**{item}**: 데이터 부족")
+                            continue
 
                         today_pred = forecast.iloc[-1]['yhat']
                         last_actual = ohlc['last'].iloc[-1]
@@ -616,7 +685,7 @@ with tab1:
                         format_str = ",.2f" if apply_gold else ",.0f"
 
                         st.metric(
-                            label=f"[{item}] 예측가",
+                            label=f"[{item}] 예측가 ({model_label})",
                             value=f"{today_pred:{format_str}} {unit_str}",
                             delta=f"{diff:+{format_str}} {unit_str} ({diff_pct:+.2f}%)"
                         )

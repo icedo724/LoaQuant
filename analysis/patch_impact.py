@@ -94,8 +94,9 @@ def run_counterfactual(series: pd.Series, patch_date: pd.Timestamp) -> dict:
         daily_seasonality=False,
         weekly_seasonality=True,
         yearly_seasonality=False,
-        changepoint_prior_scale=0.15,
-        interval_width=0.80,
+        changepoint_prior_scale=0.10,  # 0.15→0.10: 사전 데이터만 쓰므로 더 보수적
+        n_changepoints=10,             # 기본 25는 단기 데이터 과다
+        interval_width=0.95,           # 0.80→0.95: 실측 커버리지가 목표치 크게 미달
     )
     m.fit(pd.DataFrame({'ds': train.index, 'y': train.values}))
     fc = m.predict(pd.DataFrame({'ds': post.index})).set_index('ds')

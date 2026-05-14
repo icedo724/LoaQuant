@@ -8,6 +8,7 @@ pymysql
 cryptography
 scipy
 statsmodels
+scikit-learn
 matplotlib
 seaborn
 plotly
