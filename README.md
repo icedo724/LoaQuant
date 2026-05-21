@@ -40,6 +40,6 @@ GitHub Actions를 활용해 로스트아크 경매장의 주요 품목 최저가
 - **패치분석실**: 시계열 모델 기반 비정기적 요인에 대한 영향 시각화
 
 ## 분석 리포트
-**[Notion](notion.so/miniminimin/318fbcdaed2880cd8de8dd88406d3564?source=copy_link)**
+**[Notion](https://miniminimin.notion.site/318fbcdaed2880cd8de8dd88406d3564?source=copy_link)**
 
 
