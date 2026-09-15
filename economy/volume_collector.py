@@ -1,6 +1,5 @@
 import sys
 import os
-import time
 import pandas as pd
 from datetime import datetime
 
@@ -33,7 +32,6 @@ def fetch_daily_volume_wide():
             if data and 'Items' in data:
                 for item in data['Items']:
                     if name == item['Name']: target_items[item['Id']] = item['Name']
-            time.sleep(0.12)
 
     all_materials = ["운명의 파편 주머니(대)", "빙하의 숨결", "용암의 숨결", "운명의 돌파석", "위대한 운명의 돌파석", "운명의 파괴석", "운명의 파괴석 결정", "운명의 수호석",
                      "운명의 수호석 결정", "아비도스 융화 재료", "상급 아비도스 융화 재료", "명예의 파편 주머니(대)", "태양의 은총", "태양의 축복", "태양의 가호",
@@ -44,13 +42,11 @@ def fetch_daily_volume_wide():
         if data and 'Items' in data:
             for item in data['Items']:
                 if name in item['Name']: target_items[item['Id']] = item['Name']
-        time.sleep(0.12)
 
     for page in range(1, 20):
         b_data = api.get_market_items(category_code=60000, page_no=page)
         if b_data and 'Items' in b_data and len(b_data['Items']) > 0:
             for item in b_data['Items']: target_items[item['Id']] = item['Name']
-            time.sleep(0.12)
         else:
             break
 
@@ -68,7 +64,6 @@ def fetch_daily_volume_wide():
                     'item_name': item_name,
                     'TradeCount': stat['TradeCount']
                 })
-        time.sleep(0.12)
 
     if not all_volume_data:
         print("⚠️ 수집된 데이터가 없습니다.")

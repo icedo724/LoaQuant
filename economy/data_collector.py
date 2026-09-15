@@ -1,6 +1,5 @@
 import sys
 import os
-import time
 import pandas as pd
 from datetime import datetime, timedelta, timezone
 
@@ -100,7 +99,6 @@ def collect_market_data():
                             'current_min_price': item['CurrentMinPrice'],
                             'collected_at': datetime.now()
                         })
-            time.sleep(0.12)
 
     # ---------------------------------------------------------
     # 2. 강화 재료 (T4/T3)
@@ -152,7 +150,6 @@ def collect_market_data():
                             'current_min_price': item['CurrentMinPrice'],
                             'collected_at': datetime.now()
                         })
-            time.sleep(0.12)
 
     fetch_market_items(items_t4, data_materials, 50000, 4)
     fetch_market_items(items_t3, data_materials, 50000, 3)
@@ -173,7 +170,6 @@ def collect_market_data():
                     'current_min_price': item['CurrentMinPrice'],
                     'collected_at': datetime.now()
                 })
-            time.sleep(0.12)
         else:
             break
 
@@ -192,7 +188,6 @@ def collect_market_data():
                     'current_min_price': item['CurrentMinPrice'],
                     'collected_at': datetime.now()
                 })
-            time.sleep(0.2)
         else:
             break
 
@@ -222,7 +217,6 @@ def collect_market_data():
                     'current_min_price': min_price,
                     'collected_at': datetime.now()
                 })
-        time.sleep(0.3)
 
     # ---------------------------------------------------------
     # 6. 저장 (DB & CSV)
