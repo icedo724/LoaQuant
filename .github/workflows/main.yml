@@ -8,18 +8,29 @@ on:
 permissions:
   contents: write
 
+# 이전 실행이 끝나지 않은 상태에서 다음 정시 실행이 시작되면
+# 같은 API 키로 동시에 호출하게 되어 분당 호출 한도를 초과한다.
+# data/*.csv 를 함께 커밋하므로 push 충돌도 발생한다.
+concurrency:
+  group: lostark-collector
+  cancel-in-progress: false
+
 jobs:
   collect-data:
     runs-on: ubuntu-latest
+    # 정상 실행은 약 5분이다. 한도 제어와 재시도를 고려해도 이 범위를 넘으면
+    # 이상 상황이므로, 다음 정시 실행 전에 종료되도록 상한을 둔다.
+    timeout-minutes: 20
 
     steps:
     - name: Checkout repository
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
 
     - name: Set up Python
-      uses: actions/setup-python@v4
+      uses: actions/setup-python@v5
       with:
         python-version: '3.10'
+        cache: pip
 
     - name: Install dependencies
       run: |
