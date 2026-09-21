@@ -48,17 +48,27 @@ project_root = os.path.dirname(current_dir)
 har_path = os.path.join(project_root, 'data', 'gold', 'discord_data.har')
 save_name = os.path.join(project_root, 'data', 'gold', 'chatlog.csv')
 
-if not os.path.exists(har_path):
-    print(f"❌ 에러: '{har_path}' 파일을 찾을 수 없습니다.")
-else:
-    df_chat = extract_discord_messages_from_har(har_path)
 
-    print(f"\n✅ 총 {len(df_chat)}개의 메시지를 성공적으로 추출했습니다")
+def main(har_file_path=har_path, output_path=save_name):
+    if not os.path.exists(har_file_path):
+        print(f"에러: '{har_file_path}' 파일을 찾을 수 없습니다.")
+        return 1
+
+    df_chat = extract_discord_messages_from_har(har_file_path)
+
+    print(f"\n총 {len(df_chat)}개의 메시지를 추출했습니다")
     print("-" * 50)
     print(df_chat.head())
     print("-" * 50)
 
-    os.makedirs(os.path.dirname(save_name), exist_ok=True)
+    os.makedirs(os.path.dirname(output_path), exist_ok=True)
 
-    df_chat.to_csv(save_name, index=False, encoding='utf-8-sig')
-    print(f"✅ [{save_name}] 파일로 저장이 완료되었습니다")
+    df_chat.to_csv(output_path, index=False, encoding='utf-8-sig')
+    print(f"[{output_path}] 파일로 저장이 완료되었습니다")
+    return 0
+
+
+# 모듈 최상위에서 실행하면 import 만 해도 HAR 파싱과 CSV 쓰기가 일어난다.
+# gold_processing.py 와 규약을 맞춰 진입점을 가드 안에 둔다.
+if __name__ == "__main__":
+    raise SystemExit(main())
