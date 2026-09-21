@@ -1,6 +1,7 @@
 """화면에 숫자로 나가는 집계. Streamlit 없이 검증할 수 있도록 분리해 둔다."""
 from __future__ import annotations
 
+import numpy as np
 import pandas as pd
 
 from analysis import marketdata as md
@@ -63,6 +64,66 @@ def recent_window(index: pd.DatetimeIndex, days: int) -> pd.Timestamp | None:
     if idx.empty:
         return None
     return idx.max() - pd.Timedelta(days=days - 1)
+
+
+# ---------------------------------------------------------------------------
+# 교환 효율
+# ---------------------------------------------------------------------------
+EXCHANGE_WINDOW_DAYS = 30
+
+# 기간 중 이득이던 비율이 이 밖이면 방향이 분명하다고 본다.
+_CLEAR_WIN = 0.80
+_CLEAR_LOSS = 0.20
+
+
+def exchange_spread(
+    prices: pd.DataFrame,
+    low: str,
+    high: str,
+    ratio: int,
+    window_days: int = EXCHANGE_WINDOW_DAYS,
+) -> dict | None:
+    """하위 재료 ``ratio`` 개와 상위 재료 1개의 가격 차이.
+
+    손익을 **최신 관측 한 건**으로 판정하면 안 된다. 실측으로 8개 페어 중 5개가
+    최근 30일 안에서 부호가 32~105 회 바뀐다. 스프레드가 0 근처인 페어는 수집이
+    한 번 더 될 때마다 "이득"과 "손해"를 오간다.
+
+    그래서 현재값과 함께 기간 중앙값, 이득이던 관측 비율, 부호가 바뀐 횟수를
+    돌려준다. 판정은 중앙값이 아니라 **이득 비율**로 내린다. 방향이 분명하지
+    않으면 분명하지 않다고 말하는 편이 낫다.
+    """
+    pair = prices[[low, high]].dropna() if low in prices.columns and high in prices.columns else None
+    if pair is None or pair.empty:
+        return None
+
+    spread = pair[high] - pair[low] * ratio
+    cutoff = pair.index.max() - pd.Timedelta(days=window_days)
+    recent = spread[spread.index >= cutoff]
+    if recent.empty:
+        recent = spread
+
+    sign = np.sign(recent.to_numpy())
+    flips = int((sign[1:] != sign[:-1]).sum()) if len(sign) > 1 else 0
+    win_rate = float((recent > 0).mean())
+
+    if win_rate >= _CLEAR_WIN:
+        verdict = "gain"
+    elif win_rate <= _CLEAR_LOSS:
+        verdict = "loss"
+    else:
+        verdict = "unstable"
+
+    return {
+        "current": float(spread.iloc[-1]),
+        "as_of": spread.index[-1],
+        "median": float(recent.median()),
+        "win_rate": win_rate,
+        "flips": flips,
+        "n": int(len(recent)),
+        "window_days": window_days,
+        "verdict": verdict,
+    }
 
 
 # ---------------------------------------------------------------------------

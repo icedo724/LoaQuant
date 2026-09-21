@@ -246,6 +246,37 @@ def test_stale_price_is_not_reported_as_current():
     check("가격을 내놓지 않음", "price" not in rep)
 
 
+def test_exchange_verdict_is_not_one_observation():
+    print("\n[12] 교환 손익을 최신 관측 한 건으로 단정하지 않는가")
+    idx = pd.date_range("2026-01-01", periods=60, freq="D")
+
+    # 0 근처에서 부호가 계속 바뀌는 스프레드. 마지막 관측은 우연히 이득이다.
+    low = pd.Series(100.0, index=idx)
+    noisy = pd.Series([500.0 + (5 if i % 2 else -5) for i in range(60)], index=idx)
+    sp = metrics.exchange_spread(pd.DataFrame({"L": low, "H": noisy}), "L", "H", 5)
+    check("마지막 관측은 이득", sp["current"] > 0, f"{sp['current']:+.0f}")
+    check("그래도 판정은 unstable", sp["verdict"] == "unstable", f"{sp['verdict']}")
+    check("부호 변동 횟수를 보고", sp["flips"] > 20, f"{sp['flips']}회")
+    check("이득 비율이 절반 근처", 0.4 < sp["win_rate"] < 0.6, f"{sp['win_rate']:.0%}")
+
+    # 방향이 분명한 경우는 그대로 단정한다.
+    clear = pd.Series(600.0, index=idx)
+    sp2 = metrics.exchange_spread(pd.DataFrame({"L": low, "H": clear}), "L", "H", 5)
+    check("일관되게 이득이면 gain", sp2["verdict"] == "gain", f"{sp2['verdict']}")
+    check("부호 변동 없음", sp2["flips"] == 0)
+
+    cheap = pd.Series(400.0, index=idx)
+    sp3 = metrics.exchange_spread(pd.DataFrame({"L": low, "H": cheap}), "L", "H", 5)
+    check("일관되게 손해면 loss", sp3["verdict"] == "loss", f"{sp3['verdict']}")
+
+    # 창 밖 데이터는 판정에 끌어들이지 않는다.
+    mixed = pd.Series([400.0] * 30 + [600.0] * 30, index=idx)
+    sp4 = metrics.exchange_spread(pd.DataFrame({"L": low, "H": mixed}), "L", "H", 5,
+                                  window_days=20)
+    check("최근 창만 본다", sp4["verdict"] == "gain" and sp4["n"] <= 21,
+          f"{sp4['verdict']}, n={sp4['n']}")
+
+
 def main():
     test_interval_widens_with_extrapolation()
     test_interval_coverage_matches_nominal()
@@ -258,6 +289,7 @@ def main():
     test_trade_value_ranking_is_not_legacy_ranking()
     test_partial_day_is_excluded()
     test_stale_price_is_not_reported_as_current()
+    test_exchange_verdict_is_not_one_observation()
 
     print("\n" + "=" * 52)
     if FAILURES:

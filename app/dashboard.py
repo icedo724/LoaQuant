@@ -703,17 +703,34 @@ with tab1:
                 scaled[f"{low} (x{ratio})"] = scaled[low] * ratio
                 draw_price_chart(scaled[[f"{low} (x{ratio})", high]],
                                  f"{low} {ratio}묶음 vs {high}", apply_gold, events)
-                diff = float(pair[high].iloc[-1] - pair[low].iloc[-1] * ratio)
+                sp = metrics.exchange_spread(hourly, low, high, ratio)
+                if sp is None:
+                    continue
+
                 unit = "원" if apply_gold else "골드"
-                amount = f"{abs(diff):,.2f}" if apply_gold else f"{abs(diff):,.0f}"
-                when = pair.index[-1].strftime("%m/%d %H:%M")
-                if diff > 0:
-                    st.success(f"{when} 기준 · {low} → {high} 교환 : 약 {amount} {unit} 이득 "
-                               f"(교환 비용 미반영)")
-                elif diff < 0:
-                    st.error(f"{when} 기준 · {low} → {high} 교환 : 약 {amount} {unit} 손해")
+                num = (lambda v: f"{v:,.2f}") if apply_gold else (lambda v: f"{v:,.0f}")
+                when = sp["as_of"].strftime("%m/%d %H:%M")
+
+                c1, c2, c3 = st.columns(3)
+                c1.metric(f"현재 차이 ({when})", f"{num(sp['current'])} {unit}")
+                c2.metric(f"최근 {sp['window_days']}일 중앙값", f"{num(sp['median'])} {unit}")
+                c3.metric(f"이득이던 관측 비율", f"{sp['win_rate']:.0%}",
+                          help=f"최근 {sp['window_days']}일 {sp['n']}건 기준")
+
+                # 스프레드가 0 근처면 수집 한 번에 판정이 뒤집힌다. 실측으로 8개 페어 중
+                # 5개가 30일 안에서 부호가 32~105회 바뀐다. 최신 한 건으로 단정하지 않는다.
+                if sp["verdict"] == "gain":
+                    st.success(f"{low} → {high} 교환은 최근 {sp['window_days']}일 중 "
+                               f"{sp['win_rate']:.0%} 이득이었습니다 (교환 비용 미반영).")
+                elif sp["verdict"] == "loss":
+                    st.error(f"{low} → {high} 교환은 최근 {sp['window_days']}일 중 "
+                             f"{1 - sp['win_rate']:.0%} 손해였습니다.")
                 else:
-                    st.info("차이가 없습니다.")
+                    st.warning(
+                        f"방향이 분명하지 않습니다. 최근 {sp['window_days']}일 동안 "
+                        f"이득 {sp['win_rate']:.0%} / 손해 {1 - sp['win_rate']:.0%} 이고, "
+                        f"부호가 {sp['flips']}회 바뀌었습니다. "
+                        f"현재 값 하나로 판단하지 마세요.")
 
 # ── 생활 재료 ──
 with tab2:
