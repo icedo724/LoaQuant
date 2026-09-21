@@ -2,15 +2,19 @@ name: Lost Ark Data Collector
 
 on:
   schedule:
-    - cron: '0 * * * *'
+    # 정각(0 * * * *)은 GitHub 전체에서 가장 혼잡한 슬롯이라 스케줄 이벤트가 자주 버려진다.
+    # 실측(런 60건)에서 모든 런의 run_started_at - created_at 이 0분이었다. 큐에서 밀린 게
+    # 아니라 이벤트 자체가 발생하지 않은 것이므로, 대응은 시도 횟수를 늘리는 것뿐이다.
+    # 정각을 피해 시간당 3회 시도하고, 과수집은 economy/collect_guard.py 가 막는다.
+    - cron: '13,33,53 * * * *'
   workflow_dispatch:
 
 permissions:
   contents: write
 
-# 이전 실행이 끝나지 않은 상태에서 다음 정시 실행이 시작되면
-# 같은 API 키로 동시에 호출하게 되어 분당 호출 한도를 초과한다.
-# data/*.csv 를 함께 커밋하므로 push 충돌도 발생한다.
+# 이전 실행이 끝나지 않은 상태에서 다음 실행이 시작되면 같은 API 키로 동시에
+# 호출하게 되어 분당 호출 한도를 초과한다. data/*.csv 를 함께 커밋하므로 push 충돌도
+# 발생한다. 거래량 워크플로와도 같은 그룹을 써서 서로 겹치지 않게 한다.
 concurrency:
   group: lostark-collector
   cancel-in-progress: false
@@ -18,9 +22,8 @@ concurrency:
 jobs:
   collect-data:
     runs-on: ubuntu-latest
-    # 정상 실행은 약 5분이다. 한도 제어와 재시도를 고려해도 이 범위를 넘으면
-    # 이상 상황이므로, 다음 정시 실행 전에 종료되도록 상한을 둔다.
-    timeout-minutes: 20
+    # 거래량 수집을 분리한 뒤 정상 실행은 약 1분이다. 이 범위를 크게 넘으면 이상 상황이다.
+    timeout-minutes: 15
 
     steps:
     - name: Checkout repository
@@ -46,13 +49,22 @@ jobs:
     - name: Run Data Collector
       run: python economy/data_collector.py
 
-    - name: Run Volume Collector
-      run: python economy/volume_collector.py
-
+    # 수집이 실패해도 그 시점까지 받아둔 시세는 커밋한다. 예전에는 이 스텝이 건너뛰어져
+    # 성공적으로 받아둔 데이터까지 통째로 사라졌다.
     - name: Commit and Push Data
+      if: always()
       run: |
         git config --global user.name "GitHub Action"
         git config --global user.email "action@github.com"
-        git add data/*.csv
-        git commit -m "Update market prices & volume (Automated)" || exit 0
-        git push
+        git add data/
+        git diff --cached --quiet && echo "변경 없음" && exit 0
+        git commit -m "Update market prices (Automated)"
+        # 사람이 직접 푸시한 직후에는 non-fast-forward 로 실패할 수 있다.
+        # 그 경우 이번 실행의 수집분이 통째로 버려지므로 재시도한다.
+        for attempt in 1 2 3; do
+          git pull --rebase --autostash origin main && git push && exit 0
+          echo "push 실패 ($attempt/3). 재시도합니다."
+          sleep $((attempt * 5))
+        done
+        echo "push 최종 실패"
+        exit 1

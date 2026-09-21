@@ -1,0 +1,62 @@
+name: Lost Ark Volume Collector
+
+on:
+  schedule:
+    # 거래량은 일 단위 데이터라 하루 1회면 충분하다.
+    # UTC 20:17 = KST 05:17. 로아 서버 일일 정산(06:00) 직전이라 전일치가 확정돼 있다.
+    - cron: '17 20 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+# 시세 수집과 같은 그룹. 두 워크플로가 겹치면 같은 API 키로 동시에 호출하게 되고
+# data/ 를 함께 커밋하므로 push 도 충돌한다.
+concurrency:
+  group: lostark-collector
+  cancel-in-progress: false
+
+jobs:
+  collect-volume:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.10'
+        cache: pip
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+
+    - name: Create Config Files
+      run: |
+        mkdir -p config
+        echo "${{ secrets.LOSTARK_API_KEY }}" > config/api.txt
+        echo '{"host": "skip", "user": "skip", "password": "skip", "database": "skip", "port": 3306}' > config/db.txt
+
+    - name: Run Volume Collector
+      run: python economy/volume_collector.py
+
+    - name: Commit and Push Data
+      if: always()
+      run: |
+        git config --global user.name "GitHub Action"
+        git config --global user.email "action@github.com"
+        git add data/
+        git diff --cached --quiet && echo "변경 없음" && exit 0
+        git commit -m "Update market volume (Automated)"
+        for attempt in 1 2 3; do
+          git pull --rebase --autostash origin main && git push && exit 0
+          echo "push 실패 ($attempt/3). 재시도합니다."
+          sleep $((attempt * 5))
+        done
+        echo "push 최종 실패"
+        exit 1
