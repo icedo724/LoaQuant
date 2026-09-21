@@ -24,6 +24,16 @@ RETRYABLE_STATUS = (429, 500, 502, 503, 504)
 # 연속 실패가 누적되면 수집을 중단해 실패를 빨리 드러낸다.
 MAX_CONSECUTIVE_FAILURES = 5
 
+# 서버가 알려주는 잔여 할당량. 고정 간격만으로는 같은 API 키를 다른 곳에서
+# (로컬 실행, 다른 도구) 함께 쓸 때 실제 잔량을 알 수 없어 한도를 넘길 수 있다.
+# 잔량이 이 값 아래로 내려가면 리셋 시각까지 기다린다.
+#
+# 주의: 이 제어는 '더 느리게' 만드는 방향으로만 동작한다. 잔량이 넉넉하다고 해서
+# MIN_REQUEST_INTERVAL 보다 빨리 보내지 않는다. 헤더를 신뢰해 간격을 좁히면
+# 헤더가 누락되거나 부정확할 때 곧바로 한도 위반이 되기 때문이다.
+RATE_LIMIT_FLOOR = 10
+MAX_RESET_WAIT = 70.0
+
 
 class APIUnavailableError(RuntimeError):
     pass
@@ -41,6 +51,10 @@ class LostArkAPI:
         self.session = requests.Session()
         self._last_request_at = 0.0
         self._consecutive_failures = 0
+        # 마지막 응답이 알려준 잔여 할당량. None 이면 헤더를 받지 못한 상태다.
+        self._remaining = None
+        self._reset_after = None
+        self.request_count = 0
 
     # -----------------------------------------------------------------
     # 호출 한도 제어
@@ -51,7 +65,34 @@ class LostArkAPI:
         elapsed = time.monotonic() - self._last_request_at
         if elapsed < MIN_REQUEST_INTERVAL:
             time.sleep(MIN_REQUEST_INTERVAL - elapsed)
+
+        # 고정 간격을 지킨 뒤에도 서버가 잔량 부족을 알렸다면 리셋까지 더 기다린다.
+        if self._remaining is not None and self._remaining < RATE_LIMIT_FLOOR:
+            wait = min(self._reset_after or MAX_RESET_WAIT, MAX_RESET_WAIT)
+            if wait > 0:
+                print(f"잔여 할당량 {self._remaining}건 → 리셋까지 {wait:.0f}초 대기")
+                time.sleep(wait)
+            self._remaining = None
+            self._reset_after = None
+
         self._last_request_at = time.monotonic()
+
+    def _read_rate_limit(self, response):
+        # X-RateLimit-* 헤더를 기록한다. 헤더가 없으면 고정 간격만으로 동작한다.
+        if response is None:
+            return
+        try:
+            remaining = response.headers.get('X-RateLimit-Remaining')
+            if remaining is not None:
+                self._remaining = int(remaining)
+        except (TypeError, ValueError):
+            self._remaining = None
+        try:
+            reset = response.headers.get('X-RateLimit-Reset')
+            if reset is not None:
+                self._reset_after = float(reset)
+        except (TypeError, ValueError):
+            self._reset_after = None
 
     @staticmethod
     def _retry_delay(response, attempt):
@@ -76,7 +117,10 @@ class LostArkAPI:
                     response = self.session.post(url, headers=self.headers, json=payload, timeout=30)
                 else:
                     response = self.session.get(url, headers=self.headers, timeout=30)
+                self.request_count += 1
+                self._read_rate_limit(response)
             except requests.RequestException as e:
+                self.request_count += 1
                 delay = min(INITIAL_BACKOFF * (2 ** attempt), MAX_BACKOFF)
                 print(f"연결 실패 ({attempt + 1}/{MAX_RETRIES}): {e} → {delay:.0f}초 후 재시도")
                 time.sleep(delay)

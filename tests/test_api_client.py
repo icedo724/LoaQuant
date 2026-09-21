@@ -147,6 +147,52 @@ def test_non_retryable_error_fails_fast():
     check('재시도하지 않음', len(api.session.calls) == 1, f'{len(api.session.calls)}회')
 
 
+def test_rate_limit_header_only_slows_down():
+    print("\n[8] 잔여 할당량 헤더가 '더 느리게' 방향으로만 동작하는가")
+    saved_wait, saved_floor = ac.MAX_RESET_WAIT, ac.RATE_LIMIT_FLOOR
+    ac.MAX_RESET_WAIT = 0.20
+    try:
+        # 잔량이 바닥이면 리셋까지 추가로 기다린다.
+        api = build_api([(200, {'X-RateLimit-Remaining': '1', 'X-RateLimit-Reset': '30'}), 200])
+        api.get_market_items(50000, item_name='x')
+        check('헤더에서 잔량을 읽음', api._remaining == 1, f'={api._remaining}')
+        started = time.monotonic()
+        api.get_market_items(50000, item_name='x')
+        took = time.monotonic() - started
+        check('잔량 부족 시 리셋까지 추가 대기', took >= ac.MAX_RESET_WAIT * 0.95, f'{took:.2f}s')
+        check('대기 후 잔량 정보 초기화', api._remaining is None, f'={api._remaining}')
+
+        # 잔량이 넉넉해도 고정 간격보다 빨라지지는 않는다.
+        api = build_api([(200, {'X-RateLimit-Remaining': '99'}), 200])
+        api.get_market_items(50000, item_name='x')
+        started = time.monotonic()
+        api.get_market_items(50000, item_name='x')
+        took = time.monotonic() - started
+        check('잔량이 넉넉해도 최소 간격은 지킴',
+              took >= ac.MIN_REQUEST_INTERVAL * 0.95, f'{took:.2f}s >= {ac.MIN_REQUEST_INTERVAL:.2f}s')
+    finally:
+        ac.MAX_RESET_WAIT, ac.RATE_LIMIT_FLOOR = saved_wait, saved_floor
+
+
+def test_header_absent_falls_back_to_fixed_interval():
+    print("\n[9] 헤더가 없으면 고정 간격만으로 동작하는가")
+    api = build_api([200, 200])
+    api.get_market_items(50000, item_name='x')
+    check('잔량 미상이면 None 유지', api._remaining is None, f'={api._remaining}')
+    started = time.monotonic()
+    api.get_market_items(50000, item_name='x')
+    took = time.monotonic() - started
+    check('최소 간격은 그대로 적용', took >= ac.MIN_REQUEST_INTERVAL * 0.95, f'{took:.2f}s')
+
+
+def test_request_count_is_tracked():
+    print("\n[10] 요청 수를 세는가 (수집 로그용)")
+    api = build_api([200, 200, 200])
+    for _ in range(3):
+        api.get_market_items(50000, item_name='x')
+    check('요청 3건 기록', api.request_count == 3, f'={api.request_count}')
+
+
 def main():
     # 백오프 대기로 테스트가 길어지지 않도록 간격을 줄인다.
     ac.INITIAL_BACKOFF, ac.MAX_BACKOFF = 0.01, 0.02
@@ -158,6 +204,9 @@ def main():
     test_retry_after_header_is_honored()
     test_gives_up_when_server_asks_longer_than_budget()
     test_non_retryable_error_fails_fast()
+    test_rate_limit_header_only_slows_down()
+    test_header_absent_falls_back_to_fixed_interval()
+    test_request_count_is_tracked()
 
     print("\n" + "=" * 52)
     if FAILURES:
