@@ -38,19 +38,20 @@ st.markdown("""
 PALETTE = ["#1f77b4", "#ff7f0e", "#2ca02c", "#d62728", "#9467bd",
            "#8c564b", "#e377c2", "#7f7f7f", "#bcbd22", "#17becf"]
 
-# 교환비는 게임 내 규칙이라 코드로 확인할 수 없다. 전부 5 로 고정돼 있던 것을
-# 페어별로 분리해 적어도 한 곳에서 관리되게 했다. `verified=False` 는 아직
-# 게임 내 값과 대조하지 못했다는 뜻이고, 화면에도 그대로 표시한다.
+# 교환비는 게임 내 규칙이라 수집 데이터로는 확인할 수 없다. 코드 곳곳에 상수 5 가
+# 박혀 있던 것을 페어별 표로 옮겨, 패치로 한 페어만 바뀌어도 여기만 고치면 되게 했다.
+# 아래 값은 2026-09-21 저장소 소유자(Cho MinSeo)가 8개 페어 모두 5 가 맞다고 확인했다.
+# 새 페어를 추가할 때는 확인 전까지 verified=False 로 두면 화면에 미확인으로 표시된다.
 EXCHANGE_PAIRS = [
     # (하위 재료, 상위 재료, 하위 몇 개가 상위 1개인가, 확인됨)
-    ("찬란한 명예의 돌파석", "운명의 돌파석", 5, False),
-    ("운명의 돌파석", "위대한 운명의 돌파석", 5, False),
-    ("정제된 파괴강석", "운명의 파괴석", 5, False),
-    ("운명의 파괴석", "운명의 파괴석 결정", 5, False),
-    ("정제된 수호강석", "운명의 수호석", 5, False),
-    ("운명의 수호석", "운명의 수호석 결정", 5, False),
-    ("최상급 오레하 융화 재료", "아비도스 융화 재료", 5, False),
-    ("아비도스 융화 재료", "상급 아비도스 융화 재료", 5, False),
+    ("찬란한 명예의 돌파석", "운명의 돌파석", 5, True),
+    ("운명의 돌파석", "위대한 운명의 돌파석", 5, True),
+    ("정제된 파괴강석", "운명의 파괴석", 5, True),
+    ("운명의 파괴석", "운명의 파괴석 결정", 5, True),
+    ("정제된 수호강석", "운명의 수호석", 5, True),
+    ("운명의 수호석", "운명의 수호석 결정", 5, True),
+    ("최상급 오레하 융화 재료", "아비도스 융화 재료", 5, True),
+    ("아비도스 융화 재료", "상급 아비도스 융화 재료", 5, True),
 ]
 
 
@@ -684,16 +685,16 @@ with tab1:
     if out:
         selected, hourly, _ = out
         st.markdown("#### 교환 효율 분석")
-        st.caption("교환비는 게임 내 규칙이라 수집 데이터로 확인할 수 없습니다. "
-                   "아래 값은 코드에 적힌 가정이며, 실제와 다르면 손익 판정이 뒤집힙니다.")
+        st.caption("손익은 시세 차이만 본 것이며 교환에 드는 비용(수수료·부가 재료)은 "
+                   "반영하지 않았습니다.")
         if st.checkbox("교환비 비교 보기", value=True, key="ex_show"):
             active = [(l, h, r, v) for l, h, r, v in EXCHANGE_PAIRS
                       if l in selected and h in selected]
             if not active:
                 st.caption("하위 재료와 상위 재료를 함께 선택하세요.")
             for low, high, ratio, verified in active:
-                mark = "" if verified else " ⚠ 미확인"
-                st.markdown(f"##### [{high}] 교환 효율 — 가정 교환비 {low} × {ratio}{mark}")
+                mark = "" if verified else " ⚠ 교환비 미확인"
+                st.markdown(f"##### [{high}] 교환 효율 — {low} × {ratio}{mark}")
                 pair = hourly[[low, high]].dropna()
                 if pair.empty:
                     st.warning("두 품목이 동시에 수집된 시점이 없습니다.")
@@ -708,7 +709,7 @@ with tab1:
                 when = pair.index[-1].strftime("%m/%d %H:%M")
                 if diff > 0:
                     st.success(f"{when} 기준 · {low} → {high} 교환 : 약 {amount} {unit} 이득 "
-                               f"(교환 수수료 미반영)")
+                               f"(교환 비용 미반영)")
                 elif diff < 0:
                     st.error(f"{when} 기준 · {low} → {high} 교환 : 약 {amount} {unit} 손해")
                 else:
