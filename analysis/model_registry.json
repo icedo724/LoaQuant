@@ -1,0 +1,157 @@
+{
+  "generated_at": "2026-09-21T06:52:32+00:00",
+  "horizon": 1,
+  "level": 0.95,
+  "min_train_days": 28,
+  "default": "prophet",
+  "items": {
+    "운명의 파괴석": {
+      "model": "prophet",
+      "mape": 29.41,
+      "coverage": 0.889,
+      "width": 116.047,
+      "n": 45,
+      "candidates": {
+        "ols_trend_dow": {
+          "mape": 64.276,
+          "coverage": 1.0,
+          "width": 182.295,
+          "n": 45
+        },
+        "prophet": {
+          "mape": 29.41,
+          "coverage": 0.889,
+          "width": 116.047,
+          "n": 45
+        }
+      }
+    },
+    "운명의 파괴석 결정": {
+      "model": "ols_trend_dow",
+      "mape": 31.276,
+      "coverage": 0.578,
+      "width": 69.808,
+      "n": 45,
+      "candidates": {
+        "ols_trend_dow": {
+          "mape": 31.276,
+          "coverage": 0.578,
+          "width": 69.808,
+          "n": 45
+        },
+        "prophet": {
+          "mape": 18.631,
+          "coverage": 0.444,
+          "width": 40.149,
+          "n": 45
+        }
+      }
+    },
+    "아비도스 융화 재료": {
+      "model": "prophet",
+      "mape": 3.648,
+      "coverage": 0.933,
+      "width": 14.45,
+      "n": 45,
+      "candidates": {
+        "ols_trend_dow": {
+          "mape": 7.094,
+          "coverage": 0.667,
+          "width": 18.182,
+          "n": 45
+        },
+        "prophet": {
+          "mape": 3.648,
+          "coverage": 0.933,
+          "width": 14.45,
+          "n": 45
+        }
+      }
+    },
+    "상급 아비도스 융화 재료": {
+      "model": "prophet",
+      "mape": 2.943,
+      "coverage": 0.689,
+      "width": 7.292,
+      "n": 45,
+      "candidates": {
+        "ols_trend_dow": {
+          "mape": 7.286,
+          "coverage": 0.356,
+          "width": 13.13,
+          "n": 45
+        },
+        "prophet": {
+          "mape": 2.943,
+          "coverage": 0.689,
+          "width": 7.292,
+          "n": 45
+        }
+      }
+    },
+    "운명의 수호석": {
+      "model": "ols_trend_dow",
+      "mape": 10.893,
+      "coverage": 1.0,
+      "width": 71.731,
+      "n": 45,
+      "candidates": {
+        "ols_trend_dow": {
+          "mape": 10.893,
+          "coverage": 1.0,
+          "width": 71.731,
+          "n": 45
+        },
+        "prophet": {
+          "mape": 13.018,
+          "coverage": 0.711,
+          "width": 31.0,
+          "n": 45
+        }
+      }
+    },
+    "태양의 은총": {
+      "model": "prophet",
+      "mape": 43.662,
+      "coverage": 0.867,
+      "width": 118.312,
+      "n": 45,
+      "candidates": {
+        "ols_trend_dow": {
+          "mape": 97.81,
+          "coverage": 0.756,
+          "width": 201.576,
+          "n": 45
+        },
+        "prophet": {
+          "mape": 43.662,
+          "coverage": 0.867,
+          "width": 118.312,
+          "n": 45
+        }
+      }
+    },
+    "아비도스 들꽃": {
+      "model": "ols_trend_dow",
+      "mape": 10.95,
+      "coverage": 0.8,
+      "width": 32.895,
+      "n": 45,
+      "candidates": {
+        "ols_trend_dow": {
+          "mape": 10.95,
+          "coverage": 0.8,
+          "width": 32.895,
+          "n": 45
+        },
+        "prophet": {
+          "mape": 6.437,
+          "coverage": 0.778,
+          "width": 19.095,
+          "n": 45
+        }
+      }
+    }
+  },
+  "note": "표본 측정입니다. 대시보드가 기본으로 보여주는 품목 위주로 7건만 쟀습니다. 여기 없는 품목은 default 모델을 쓰고 화면에 '실측 커버리지 미측정'으로 표시됩니다. 전체를 재생성하려면 `python analysis/backtest.py --horizon 1` 을 실행하세요. Prophet 은 실행 환경에 따라 최적화 경로가 달라질 수 있으므로 배포 환경에서 한 번 다시 재는 편이 좋습니다."
+}
